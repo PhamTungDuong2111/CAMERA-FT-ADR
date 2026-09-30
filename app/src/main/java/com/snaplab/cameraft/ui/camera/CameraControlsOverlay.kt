@@ -45,6 +45,10 @@ fun CameraControlsOverlay(
     zoomRatio: Float,
     isRecordingVideo: Boolean,
     currentMode: CameraUiMode,
+    activeFilter: com.snaplab.cameraft.models.PhotoFilter,
+    onSelectFilter: (com.snaplab.cameraft.models.PhotoFilter) -> Unit,
+    activeSticker: com.snaplab.cameraft.models.PhotoSticker?,
+    onSelectSticker: (com.snaplab.cameraft.models.PhotoSticker?) -> Unit,
     onModeChange: (CameraUiMode) -> Unit,
     onToggleFlash: () -> Unit,
     onCycleAspectRatio: () -> Unit,
@@ -60,7 +64,10 @@ fun CameraControlsOverlay(
     modifier: Modifier = Modifier
 ) {
     val loc = LocalizationManager.shared
-    val currentLang by loc.currentLanguage.collectAsState()
+    val isVi = loc.isVietnamese()
+
+    var showingFilterSelector by remember { mutableStateOf(false) }
+    var showingStickerSelector by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -112,6 +119,26 @@ fun CameraControlsOverlay(
                 tint = if (showGrid) SnapGold else Color.White.copy(alpha = 0.5f)
             )
 
+            // Filter button (Fleeting Years, Elegant, Cartoon, 3D...)
+            TopBarIconButton(
+                onClick = {
+                    showingFilterSelector = !showingFilterSelector
+                    showingStickerSelector = false
+                },
+                icon = Icons.Default.AutoFixHigh,
+                tint = if (activeFilter != com.snaplab.cameraft.models.PhotoFilter.ORIGINAL) SnapSafetyOrange else Color.White
+            )
+
+            // Sticker button (ĐÃ DUYỆT, NGHIỆM THU ĐẠT...)
+            TopBarIconButton(
+                onClick = {
+                    showingStickerSelector = !showingStickerSelector
+                    showingFilterSelector = false
+                },
+                icon = Icons.Default.Stars,
+                tint = if (activeSticker != null) SnapNeonGreen else Color.White
+            )
+
             // Language Switcher Button (1-Tap VI/EN)
             Box(
                 modifier = Modifier
@@ -122,7 +149,7 @@ fun CameraControlsOverlay(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = if (loc.isVietnamese()) "🇻🇳 VI" else "🇺🇸 EN",
+                    text = if (isVi) "🇻🇳 VI" else "🇺🇸 EN",
                     color = Color.White,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold
@@ -139,11 +166,91 @@ fun CameraControlsOverlay(
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // CENTER-BOTTOM CONTROLS: Zoom Pill + Mode Switcher + Shutter Deck
+        // CENTER-BOTTOM CONTROLS: Filters / Stickers Drawer + Zoom Pill + Mode Switcher + Shutter Deck
         Column(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // Live Filter Selector Bar (if expanded)
+            if (showingFilterSelector) {
+                androidx.compose.foundation.lazy.LazyRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(com.snaplab.cameraft.models.PhotoFilter.values().size) { idx ->
+                        val f = com.snaplab.cameraft.models.PhotoFilter.values()[idx]
+                        val isSelected = f == activeFilter
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(if (isSelected) SnapSafetyOrange else Color.Black.copy(alpha = 0.65f))
+                                .border(1.dp, if (isSelected) Color.White else Color.White.copy(alpha = 0.2f), RoundedCornerShape(14.dp))
+                                .clickable { onSelectFilter(f) }
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = f.getDisplayName(isVi),
+                                color = Color.White,
+                                fontSize = 11.5.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+            }
+
+            // Live Sticker Selector Bar (if expanded)
+            if (showingStickerSelector) {
+                androidx.compose.foundation.lazy.LazyRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    item {
+                        val isNone = activeSticker == null
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(if (isNone) SnapSafetyOrange else Color.Black.copy(alpha = 0.65f))
+                                .border(1.dp, if (isNone) Color.White else Color.White.copy(alpha = 0.2f), RoundedCornerShape(14.dp))
+                                .clickable { onSelectSticker(null) }
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = if (isVi) "Không nhãn" else "No Sticker",
+                                color = Color.White,
+                                fontSize = 11.5.sp,
+                                fontWeight = if (isNone) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
+                    }
+                    items(com.snaplab.cameraft.models.PhotoSticker.values().size) { idx ->
+                        val st = com.snaplab.cameraft.models.PhotoSticker.values()[idx]
+                        val isSelected = st == activeSticker
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(if (isSelected) st.composeColor.copy(alpha = 0.35f) else Color.Black.copy(alpha = 0.65f))
+                                .border(1.5.dp, if (isSelected) st.composeColor else Color.White.copy(alpha = 0.2f), RoundedCornerShape(14.dp))
+                                .clickable { onSelectSticker(st) }
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = "★ ${st.title}",
+                                color = if (isSelected) st.composeColor else Color.White,
+                                fontSize = 11.5.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+            }
+
             // Zoom Selector Pill
             Row(
                 modifier = Modifier

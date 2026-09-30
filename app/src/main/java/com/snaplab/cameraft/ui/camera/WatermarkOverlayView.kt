@@ -253,6 +253,82 @@ fun WatermarkOverlayView(
                 }
             }
         }
+
+        // Live Decorative Sticker Badge (if any)
+        val sticker = template.activeSticker
+        if (sticker != null) {
+            val stickerAlignment = when (template.position) {
+                WatermarkPosition.BOTTOM_LEFT -> Alignment.TopEnd
+                WatermarkPosition.BOTTOM_RIGHT -> Alignment.TopStart
+                WatermarkPosition.TOP_LEFT -> Alignment.BottomEnd
+                WatermarkPosition.TOP_RIGHT -> Alignment.BottomStart
+                WatermarkPosition.CENTER_BOTTOM -> Alignment.TopEnd
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(
+                        top = if (stickerAlignment == Alignment.TopEnd || stickerAlignment == Alignment.TopStart) 72.dp else 16.dp,
+                        bottom = if (stickerAlignment == Alignment.BottomEnd || stickerAlignment == Alignment.BottomStart) 140.dp else 16.dp
+                    ),
+                contentAlignment = stickerAlignment
+            ) {
+                StickerBadgeView(sticker = sticker)
+            }
+        }
+    }
+}
+
+@Composable
+fun StickerBadgeView(
+    sticker: com.snaplab.cameraft.models.PhotoSticker,
+    modifier: Modifier = Modifier
+) {
+    val color = sticker.composeColor
+    Box(
+        modifier = modifier
+            .size(80.dp)
+            .clip(androidx.compose.foundation.shape.CircleShape)
+            .background(color.copy(alpha = 0.18f))
+            .border(2.dp, color, androidx.compose.foundation.shape.CircleShape)
+            .padding(4.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .border(1.dp, color.copy(alpha = 0.6f), androidx.compose.foundation.shape.CircleShape)
+                .padding(4.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = "★ ★ ★",
+                    color = color,
+                    fontSize = 7.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = sticker.title,
+                    color = Color.White,
+                    fontSize = 9.5.sp,
+                    fontWeight = FontWeight.Black,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    lineHeight = 11.sp
+                )
+                Text(
+                    text = sticker.subtitle,
+                    color = color,
+                    fontSize = 6.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    lineHeight = 8.sp
+                )
+            }
+        }
     }
 }
 

@@ -18,8 +18,10 @@ class WatermarkRenderer private constructor() {
         timestamp: Long = System.currentTimeMillis(),
         locationState: LocationState = LocationWeatherManager.shared.locationState.value
     ): Bitmap {
+        // Apply aesthetic / creative photo filter first (Fleeting Years, Elegant, Cartoon, 3D, etc.)
+        val filteredBitmap = template.activeFilter.applyToBitmap(originalBitmap)
         // Create a mutable copy with ARGB_8888 for high quality drawing
-        val outputBitmap = originalBitmap.copy(Bitmap.Config.ARGB_8888, true)
+        val outputBitmap = filteredBitmap.copy(Bitmap.Config.ARGB_8888, true)
         val canvas = Canvas(outputBitmap)
 
         val imageWidth = outputBitmap.width.toFloat()
@@ -295,6 +297,24 @@ class WatermarkRenderer private constructor() {
                     qrLabelPaint
                 )
             }
+        }
+
+        // 8. Draw Active Sticker Badge (if any)
+        val sticker = template.activeSticker
+        if (sticker != null) {
+            val stickerSize = 145f * scaleFactor
+            val stickerMargin = 30f * scaleFactor
+            val stickerX = if (template.position in listOf(WatermarkPosition.TOP_RIGHT, WatermarkPosition.BOTTOM_RIGHT)) {
+                stickerMargin
+            } else {
+                imageWidth - stickerSize - stickerMargin
+            }
+            val stickerY = if (template.position in listOf(WatermarkPosition.TOP_LEFT, WatermarkPosition.TOP_RIGHT)) {
+                imageHeight - stickerSize - stickerMargin
+            } else {
+                stickerMargin + 20f * scaleFactor
+            }
+            sticker.draw(canvas, stickerX, stickerY, stickerSize)
         }
 
         return outputBitmap

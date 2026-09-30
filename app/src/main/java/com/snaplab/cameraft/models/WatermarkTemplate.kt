@@ -6,6 +6,7 @@ import java.util.UUID
 
 enum class WatermarkCategory(val nameVi: String, val nameEn: String) {
     ENGINEERING("Công trình", "Engineering"),
+    OFFICE("Văn phòng", "Office"),
     ATTENDANCE("Chấm công", "Attendance"),
     PATROL("Tuần tra", "Patrol"),
     TRAVEL("Du lịch", "Travel"),
@@ -82,6 +83,10 @@ data class WatermarkTemplate(
     var inspectorName: String = "",
     var customNotes: String = "",
 
+    // Filter & Sticker integration
+    var activeFilter: PhotoFilter = PhotoFilter.ORIGINAL,
+    var activeSticker: PhotoSticker? = null,
+
     // Adjustments
     var opacity: Float = 0.92f, // 0.3f - 1.0f
     var scale: Float = 1.0f     // 0.7f - 1.4f
@@ -110,7 +115,9 @@ data class WatermarkTemplate(
                 workItem = "Nghiệm thu cốp pha sàn tầng 15",
                 contractorName = "Tổng thầu Xây dựng Nam Á",
                 inspectorName = "Kỹ sư: Nguyễn Văn Hưng",
-                customNotes = "Đạt chuẩn an toàn kỹ thuật thi công"
+                customNotes = "Đạt chuẩn an toàn kỹ thuật thi công",
+                activeFilter = PhotoFilter.WARM_SUNLIGHT,
+                activeSticker = PhotoSticker.PASSED
             ),
 
             // 2. Construction Blue Stamp
@@ -135,10 +142,39 @@ data class WatermarkTemplate(
                 workItem = "Đổ bê tông dầm mố M1",
                 contractorName = "Công ty Cổ phần Cầu Đường 1",
                 inspectorName = "Tư vấn giám sát: Phạm Hoàng",
-                customNotes = "Mẫu R-28 đạt mác M350"
+                customNotes = "Mẫu R-28 đạt mác M350",
+                activeFilter = PhotoFilter.CINEMATIC,
+                activeSticker = PhotoSticker.APPROVED
             ),
 
-            // 3. Work Attendance / Check-in
+            // 3. Office & Administrative Work Handover
+            WatermarkTemplate(
+                id = "office_admin_handover",
+                name = "Văn phòng & Ký nhận hồ sơ",
+                category = WatermarkCategory.OFFICE,
+                badgeStyle = WatermarkBadgeStyle.DARK_CARD,
+                colorTheme = WatermarkColorTheme.BLUEPRINT_BLUE,
+                position = WatermarkPosition.BOTTOM_LEFT,
+                showTime = true,
+                showSeconds = true,
+                showLocation = true,
+                showCoordinates = true,
+                showAltitude = false,
+                showWeather = false,
+                showCompass = false,
+                showDeviceInfo = true,
+                showAntiCounterfeitQR = true,
+                titleText = "BÀN GIAO & KÝ NHẬN HỒ SƠ",
+                projectName = "Hồ sơ nghiệm thu thanh quyết toán",
+                workItem = "Biên nhận bàn giao chứng từ gốc đợt 3",
+                contractorName = "Phòng Hành chính - Kế toán",
+                inspectorName = "Người nhận: Trần Mai Anh",
+                customNotes = "Đã kiểm đếm đầy đủ chữ ký & con dấu niêm phong",
+                activeFilter = PhotoFilter.ELEGANT,
+                activeSticker = PhotoSticker.HANDOVER
+            ),
+
+            // 4. Work Attendance / Check-in
             WatermarkTemplate(
                 id = "att_standard_checkin",
                 name = "Chấm công hiện trường",
@@ -160,10 +196,12 @@ data class WatermarkTemplate(
                 workItem = "Nhân sự: Lê Thanh Hải",
                 contractorName = "Phòng QLDA & Giám sát chất lượng",
                 inspectorName = "Mã NV: SNAP-8842",
-                customNotes = "Check-in đúng giờ ca 08:00"
+                customNotes = "Check-in đúng giờ ca 08:00",
+                activeFilter = PhotoFilter.ORIGINAL,
+                activeSticker = PhotoSticker.APPROVED
             ),
 
-            // 4. Field Patrol & Safety Inspection
+            // 5. Field Patrol & Safety Inspection
             WatermarkTemplate(
                 id = "patrol_safety_inspect",
                 name = "Tuần tra an toàn PCCC",
@@ -185,10 +223,12 @@ data class WatermarkTemplate(
                 workItem = "Kiểm tra hệ thống chữa cháy tự động",
                 contractorName = "Đội phản ứng nhanh PCCC",
                 inspectorName = "Đội trưởng: Vũ Mạnh Thắng",
-                customNotes = "Áp suất bình chữa cháy bình thường"
+                customNotes = "Áp suất bình chữa cháy bình thường",
+                activeFilter = PhotoFilter.ORIGINAL,
+                activeSticker = PhotoSticker.SAFETY_FIRST
             ),
 
-            // 5. Travel & Lifestyle Check-in
+            // 6. Travel & Lifestyle Check-in
             WatermarkTemplate(
                 id = "travel_lifestyle",
                 name = "Check-in Du lịch",
@@ -205,15 +245,17 @@ data class WatermarkTemplate(
                 showCompass = false,
                 showDeviceInfo = false,
                 showAntiCounterfeitQR = false,
-                titleText = "TRAVEL MEMORIES",
+                titleText = "FLEETING MEMORIES",
                 projectName = "Khám phá Việt Nam",
                 workItem = "Đà Lạt - Thành phố ngàn hoa",
                 contractorName = "",
                 inspectorName = "",
-                customNotes = "Thời tiết se lạnh 19°C tuyệt đẹp"
+                customNotes = "Thời tiết se lạnh 19°C tuyệt đẹp",
+                activeFilter = PhotoFilter.FLEETING_YEARS,
+                activeSticker = PhotoSticker.VIP_SEAL
             ),
 
-            // 6. Minimal Clean
+            // 7. Minimal Clean
             WatermarkTemplate(
                 id = "minimal_timestamp",
                 name = "Tối giản thời gian & GPS",
@@ -235,7 +277,9 @@ data class WatermarkTemplate(
                 workItem = "",
                 contractorName = "",
                 inspectorName = "",
-                customNotes = ""
+                customNotes = "",
+                activeFilter = PhotoFilter.ORIGINAL,
+                activeSticker = null
             )
         )
     }

@@ -65,6 +65,8 @@ fun TemplateEditorDialog(
 
     var opacity by remember { mutableStateOf(initialTemplate.opacity) }
     var scale by remember { mutableStateOf(initialTemplate.scale) }
+    var activeFilter by remember { mutableStateOf(initialTemplate.activeFilter) }
+    var activeSticker by remember { mutableStateOf(initialTemplate.activeSticker) }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -109,6 +111,8 @@ fun TemplateEditorDialog(
                                     showCompass = showCompass,
                                     showDeviceInfo = showDeviceInfo,
                                     showAntiCounterfeitQR = showAntiCounterfeitQR,
+                                    activeFilter = activeFilter,
+                                    activeSticker = activeSticker,
                                     opacity = opacity,
                                     scale = scale
                                 )
@@ -219,6 +223,78 @@ fun TemplateEditorDialog(
                                 text = pos.getTitle(isVi),
                                 color = Color.White,
                                 fontSize = 14.sp
+                            )
+                        }
+                    }
+                }
+
+                // Section: Photo Filters (Style & Creative)
+                EditorSectionHeader(if (isVi) "BỘ LỌC ẢNH NGHỆ THUẬT & AI (FILTERS)" else "PHOTO FILTERS & AI EFFECTS")
+                androidx.compose.foundation.lazy.LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(com.snaplab.cameraft.models.PhotoFilter.values().size) { idx ->
+                        val f = com.snaplab.cameraft.models.PhotoFilter.values()[idx]
+                        val isSelected = f == activeFilter
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (isSelected) SnapSafetyOrange else SnapCardDark)
+                                .border(1.dp, if (isSelected) Color.White else Color.White.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                                .clickable { activeFilter = f }
+                                .padding(horizontal = 14.dp, vertical = 8.dp)
+                        ) {
+                            Text(
+                                text = f.getDisplayName(isVi),
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
+                    }
+                }
+
+                // Section: Decorative Stickers & Seals
+                EditorSectionHeader(if (isVi) "NHÃN DÁN TRANG TRÍ (STICKERS & SEALS)" else "DECORATIVE STICKERS & BADGES")
+                androidx.compose.foundation.lazy.LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    item {
+                        val isNone = activeSticker == null
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (isNone) SnapSafetyOrange else SnapCardDark)
+                                .border(1.dp, if (isNone) Color.White else Color.White.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                                .clickable { activeSticker = null }
+                                .padding(horizontal = 14.dp, vertical = 8.dp)
+                        ) {
+                            Text(
+                                text = if (isVi) "Không dùng" else "None",
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = if (isNone) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
+                    }
+                    items(com.snaplab.cameraft.models.PhotoSticker.values().size) { idx ->
+                        val st = com.snaplab.cameraft.models.PhotoSticker.values()[idx]
+                        val isSelected = st == activeSticker
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (isSelected) st.composeColor.copy(alpha = 0.35f) else SnapCardDark)
+                                .border(1.5.dp, if (isSelected) st.composeColor else Color.White.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                                .clickable { activeSticker = st }
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                        ) {
+                            Text(
+                                text = "★ ${st.title}",
+                                color = if (isSelected) st.composeColor else Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                             )
                         }
                     }

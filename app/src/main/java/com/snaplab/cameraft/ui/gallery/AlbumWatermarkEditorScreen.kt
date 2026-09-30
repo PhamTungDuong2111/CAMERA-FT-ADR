@@ -8,6 +8,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -53,6 +55,8 @@ fun AlbumWatermarkEditorScreen(
     var allTemplates by remember { mutableStateOf(WatermarkTemplate.presets) }
 
     var showingTemplateDrawer by remember { mutableStateOf(false) }
+    var showingFilterDrawer by remember { mutableStateOf(false) }
+    var showingStickerDrawer by remember { mutableStateOf(false) }
     var showingTemplateEditor by remember { mutableStateOf(false) }
     var isProcessing by remember { mutableStateOf(false) }
 
@@ -182,6 +186,7 @@ fun AlbumWatermarkEditorScreen(
                     Image(
                         bitmap = selectedBitmap!!.asImageBitmap(),
                         contentDescription = "Selected Photo",
+                        colorFilter = currentTemplate.activeFilter.getComposeColorFilter(),
                         modifier = Modifier.fillMaxSize()
                     )
 
@@ -192,31 +197,97 @@ fun AlbumWatermarkEditorScreen(
                         onEditTapped = { showingTemplateEditor = true }
                     )
 
-                    // Bottom Floating Action Button to choose another photo or change template
-                    Row(
+                    // Bottom Floating Action Button Bar
+                    androidx.compose.foundation.lazy.LazyRow(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
-                            .padding(bottom = 24.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            .padding(bottom = 20.dp, start = 12.dp, end = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Button(
-                            onClick = { photoPickerLauncher.launch("image/*") },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color.Black.copy(alpha = 0.7f)),
-                            shape = RoundedCornerShape(20.dp)
-                        ) {
-                            Icon(imageVector = Icons.Default.SwapHoriz, contentDescription = null, tint = Color.White)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Đổi ảnh", color = Color.White)
+                        item {
+                            Button(
+                                onClick = { photoPickerLauncher.launch("image/*") },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.Black.copy(alpha = 0.75f)),
+                                shape = RoundedCornerShape(16.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Icon(imageVector = Icons.Default.SwapHoriz, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Đổi ảnh", color = Color.White, fontSize = 12.sp)
+                            }
                         }
 
-                        Button(
-                            onClick = { showingTemplateDrawer = true },
-                            colors = ButtonDefaults.buttonColors(containerColor = SnapSafetyOrange),
-                            shape = RoundedCornerShape(20.dp)
-                        ) {
-                            Icon(imageVector = Icons.Default.Layers, contentDescription = null, tint = Color.White)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(loc.t("templates"), color = Color.White)
+                        item {
+                            Button(
+                                onClick = {
+                                    showingTemplateDrawer = true
+                                    showingFilterDrawer = false
+                                    showingStickerDrawer = false
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = SnapSafetyOrange),
+                                shape = RoundedCornerShape(16.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Icon(imageVector = Icons.Default.Layers, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(loc.t("templates"), color = Color.White, fontSize = 12.sp)
+                            }
+                        }
+
+                        item {
+                            Button(
+                                onClick = {
+                                    showingFilterDrawer = true
+                                    showingTemplateDrawer = false
+                                    showingStickerDrawer = false
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (currentTemplate.activeFilter != com.snaplab.cameraft.models.PhotoFilter.ORIGINAL) SnapSafetyOrange else Color.Black.copy(alpha = 0.75f)
+                                ),
+                                shape = RoundedCornerShape(16.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Icon(imageVector = Icons.Default.AutoFixHigh, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(currentTemplate.activeFilter.getDisplayName(loc.isVietnamese()), color = Color.White, fontSize = 12.sp)
+                            }
+                        }
+
+                        item {
+                            Button(
+                                onClick = {
+                                    showingStickerDrawer = true
+                                    showingTemplateDrawer = false
+                                    showingFilterDrawer = false
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (currentTemplate.activeSticker != null) com.snaplab.cameraft.ui.theme.SnapNeonGreen else Color.Black.copy(alpha = 0.75f)
+                                ),
+                                shape = RoundedCornerShape(16.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Icon(imageVector = Icons.Default.Stars, contentDescription = null, tint = if (currentTemplate.activeSticker != null) Color.Black else Color.White, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = currentTemplate.activeSticker?.title ?: "Nhãn dán",
+                                    color = if (currentTemplate.activeSticker != null) Color.Black else Color.White,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        item {
+                            Button(
+                                onClick = { showingTemplateEditor = true },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.Black.copy(alpha = 0.75f)),
+                                shape = RoundedCornerShape(16.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Icon(imageVector = Icons.Default.Tune, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Tùy biến", color = Color.White, fontSize = 12.sp)
+                            }
                         }
                     }
                 }
@@ -244,6 +315,151 @@ fun AlbumWatermarkEditorScreen(
                         },
                         onDismiss = { showingTemplateDrawer = false }
                     )
+                }
+            }
+
+            // Filter Drawer
+            if (showingFilterDrawer) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.5f)),
+                    contentAlignment = Alignment.BottomCenter
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+                            .background(Color(0xF5181A20))
+                            .padding(18.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "BỘ LỌC NGHỆ THUẬT & AI",
+                                color = Color.White,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            IconButton(onClick = { showingFilterDrawer = false }) {
+                                Icon(imageVector = Icons.Default.Close, contentDescription = null, tint = Color.White)
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(10.dp))
+                        androidx.compose.foundation.lazy.LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            items(com.snaplab.cameraft.models.PhotoFilter.values().size) { idx ->
+                                val f = com.snaplab.cameraft.models.PhotoFilter.values()[idx]
+                                val isSelected = f == currentTemplate.activeFilter
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(if (isSelected) SnapSafetyOrange else Color.White.copy(alpha = 0.1f))
+                                        .border(1.dp, if (isSelected) Color.White else Color.Transparent, RoundedCornerShape(12.dp))
+                                        .clickable {
+                                            currentTemplate = currentTemplate.copy(activeFilter = f)
+                                            showingFilterDrawer = false
+                                        }
+                                        .padding(horizontal = 14.dp, vertical = 10.dp)
+                                ) {
+                                    Text(
+                                        text = f.getDisplayName(loc.isVietnamese()),
+                                        color = Color.White,
+                                        fontSize = 12.5.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+                }
+            }
+
+            // Sticker Drawer
+            if (showingStickerDrawer) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.5f)),
+                    contentAlignment = Alignment.BottomCenter
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+                            .background(Color(0xF5181A20))
+                            .padding(18.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "NHÃN DÁN TRANG TRÍ (STICKERS)",
+                                color = Color.White,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            IconButton(onClick = { showingStickerDrawer = false }) {
+                                Icon(imageVector = Icons.Default.Close, contentDescription = null, tint = Color.White)
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(10.dp))
+                        androidx.compose.foundation.lazy.LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            item {
+                                val isNone = currentTemplate.activeSticker == null
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(if (isNone) SnapSafetyOrange else Color.White.copy(alpha = 0.1f))
+                                        .clickable {
+                                            currentTemplate = currentTemplate.copy(activeSticker = null)
+                                            showingStickerDrawer = false
+                                        }
+                                        .padding(horizontal = 14.dp, vertical = 10.dp)
+                                ) {
+                                    Text(
+                                        text = if (loc.isVietnamese()) "Không nhãn" else "No Sticker",
+                                        color = Color.White,
+                                        fontSize = 12.5.sp
+                                    )
+                                }
+                            }
+                            items(com.snaplab.cameraft.models.PhotoSticker.values().size) { idx ->
+                                val st = com.snaplab.cameraft.models.PhotoSticker.values()[idx]
+                                val isSelected = st == currentTemplate.activeSticker
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(if (isSelected) st.composeColor.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.1f))
+                                        .border(1.5.dp, if (isSelected) st.composeColor else Color.Transparent, RoundedCornerShape(12.dp))
+                                        .clickable {
+                                            currentTemplate = currentTemplate.copy(activeSticker = st)
+                                            showingStickerDrawer = false
+                                        }
+                                        .padding(horizontal = 14.dp, vertical = 10.dp)
+                                ) {
+                                    Text(
+                                        text = "★ ${st.title}",
+                                        color = if (isSelected) st.composeColor else Color.White,
+                                        fontSize = 12.5.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
                 }
             }
 

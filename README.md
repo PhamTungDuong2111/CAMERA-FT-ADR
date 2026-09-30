@@ -36,15 +36,37 @@
 - **Chế độ Camera Mô Phỏng (Synthetic Live View)**: Tự động kích hoạt khi chạy trên máy ảo Android Studio (Emulator) chưa cấu hình webcam, hiển thị khung cảnh công trường ảo sinh động mà không bị crash.
 
 ### 2. Hệ Thống Mẫu Dấu Hiện Trường (Preset Watermark Templates)
-Ứng dụng tích hợp sẵn 6 bộ mẫu tem dấu thực địa chuẩn hóa:
+Ứng dụng tích hợp sẵn 7 bộ mẫu tem dấu thực địa chuẩn hóa:
 1. **Công trình tiêu chuẩn (Engineering Pro)**: Phong cách kính mờ Glassmorphism, viền cam an toàn Safety Orange, đầy đủ thông số dự án, kỹ sư giám sát, cao độ, thời tiết và mã QR.
 2. **Tem giám sát kỹ thuật (Blueprint Stamp)**: Phong cách khung viền xanh kỹ thuật, phục vụ biên bản nghiệm thu đổ bê tông, mố trụ cầu đường.
-3. **Chấm công hiện trường (Field Attendance)**: Thẻ đen sang trọng, viền ngọc lục bảo Emerald Green, chuyên dụng check-in ca làm việc nhân sự.
-4. **Tuần tra an toàn PCCC (Patrol & Safety Inspection)**: Viền vàng cảnh báo Golden Yellow, phục vụ tuần tra an toàn kho bãi, áp suất bình chữa cháy.
-5. **Check-in Du lịch (Travel Memories)**: Trong suốt tối giản, hiển thị địa danh, thời tiết và tọa độ danh lam thắng cảnh.
-6. **Tối giản thời gian & GPS (Minimal Timestamp)**: Tinh gọn, chỉ hiển thị ngày giờ chuẩn xác và tọa độ.
+3. **Văn phòng & Ký nhận hồ sơ (Administrative Office Work)**: Ký nhận tài liệu, biên nhận bàn giao chứng từ gốc, số công văn, người giao/nhận và phòng ban.
+4. **Chấm công hiện trường (Field Attendance)**: Thẻ đen sang trọng, viền ngọc lục bảo Emerald Green, chuyên dụng check-in ca làm việc nhân sự.
+5. **Tuần tra an toàn PCCC (Patrol & Safety Inspection)**: Viền vàng cảnh báo Golden Yellow, phục vụ tuần tra an toàn kho bãi, áp suất bình chữa cháy.
+6. **Check-in Du lịch (Travel Memories)**: Trong suốt tối giản, hiển thị địa danh, thời tiết và tọa độ danh lam thắng cảnh.
+7. **Tối giản thời gian & GPS (Minimal Timestamp)**: Tinh gọn, chỉ hiển thị ngày giờ chuẩn xác và tọa độ.
 
-### 3. Trình Tùy Biến Mẫu Dấu Chuyên Nghiệp (Template Editor)
+### 3. Bộ Lọc Màu Nghệ Thuật & Hiệu Ứng AI (Filters & Effects)
+Bên cạnh công việc kỹ thuật, app tích hợp đầy đủ công nghệ xử lý ảnh nghệ thuật:
+- **Bộ lọc phong cách (Style Presets)**:
+  - *Fleeting Years (Năm tháng)*: Tông màu hoài niệm, cổ điển ấm áp (Nostalgic warm vintage).
+  - *Elegant (Thanh lịch)*: Tương phản dịu dàng, tôn làn da sáng mịn.
+  - *Warm Sunlight (Nắng ấm)*: Nắng vàng rực rỡ hiện trường công trường.
+  - *Cinematic (Điện ảnh)*: Phối màu điện ảnh Teal & Orange giàu chiều sâu.
+  - *Noir Film (Trắng đen hoài cổ)*: Trắng đen hạt bạc cổ điển.
+- **Bộ lọc hoạt hình & 3D (3D & Cartoon Filters)**:
+  - *Cartoon AI (Hoạt hình 2D)*: Hiệu ứng hoạt họa cel-shading độc đáo cho ảnh chân dung & hiện trường.
+  - *3D Pop (Lập thể 3D)*: Hiệu ứng dịch pha quang sai Anaglyph 3D lập thể.
+  - *Comic Sketch (Phác thảo chì)*: Nét vẽ bút chì than phong cách truyện tranh.
+  - *Pop Poster (Áp phích)*: Bão hòa màu sắc phong cách đồ họa Pop-Art.
+- **Hệ thống Nhãn dán & Con dấu nghiệp vụ (Stickers & Badges)**:
+  - `ĐÃ DUYỆT` (OFFICIALLY APPROVED)
+  - `NGHIỆM THU ĐẠT` (QUALITY CONTROL PASSED)
+  - `SAFETY FIRST` (AN TOÀN LÀ TRÊN HẾT)
+  - `KHẨN CẤP` (PRIORITY DISPATCH)
+  - `BÀN GIAO HỒ SƠ` (OFFICIAL HANDOVER)
+  - `VIP SEAL` (VERIFIED EXCELLENCE)
+
+### 4. Trình Tùy Biến Mẫu Dấu Chuyên Nghiệp (Template Editor)
 - Tùy chỉnh chi tiết tiêu đề, tên dự án, hạng mục thi công, đơn vị nhà thầu, người giám sát, ghi chú.
 - Chọn bảng màu thương hiệu: *Safety Orange, Blueprint Blue, Emerald Green, Golden Yellow, Crimson Red, Crisp White*.
 - Chọn kiểu khung badge: *Glassmorphism (Kính mờ), Dark Card (Thẻ đen hiện đại), Bordered Stamp (Tem kỹ thuật), Minimal Transparent (Tối giản trong suốt)*.

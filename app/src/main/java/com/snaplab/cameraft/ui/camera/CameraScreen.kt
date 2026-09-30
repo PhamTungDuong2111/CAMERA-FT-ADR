@@ -41,7 +41,6 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun CameraScreen() {
-    val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
 
@@ -150,6 +149,7 @@ fun CameraScreen() {
             Image(
                 bitmap = syntheticBitmap.asImageBitmap(),
                 contentDescription = "Simulated Camera",
+                colorFilter = selectedTemplate.activeFilter.getComposeColorFilter(),
                 modifier = Modifier.fillMaxSize()
             )
         } else {
@@ -224,6 +224,10 @@ fun CameraScreen() {
             zoomRatio = zoomRatio,
             isRecordingVideo = isRecordingVideo,
             currentMode = currentMode,
+            activeFilter = selectedTemplate.activeFilter,
+            onSelectFilter = { selectedTemplate = selectedTemplate.copy(activeFilter = it) },
+            activeSticker = selectedTemplate.activeSticker,
+            onSelectSticker = { selectedTemplate = selectedTemplate.copy(activeSticker = it) },
             onModeChange = { currentMode = it },
             onToggleFlash = { cameraManager.toggleFlash() },
             onCycleAspectRatio = {

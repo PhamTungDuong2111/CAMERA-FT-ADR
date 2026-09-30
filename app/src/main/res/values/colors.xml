@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="snap_gold">#FFD700</color>
+    <color name="snap_neon_green">#00E676</color>
+    <color name="snap_danger_red">#FF1744</color>
+    <color name="snap_bg_dark">#121316</color>
+    <color name="snap_card_dark">#1C1E24</color>
+    <color name="snap_accent_orange">#FF6B00</color>
+    <color name="snap_accent_blue">#0066FF</color>
+</resources>

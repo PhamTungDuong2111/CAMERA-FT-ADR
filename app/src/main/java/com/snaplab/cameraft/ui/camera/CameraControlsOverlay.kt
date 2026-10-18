@@ -17,10 +17,13 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -61,10 +64,23 @@ fun CameraControlsOverlay(
     onOpenTemplates: () -> Unit,
     onOpenVerification: () -> Unit,
     onOpenSettings: () -> Unit,
+    deviceOrientationDegrees: Int = 0,
     modifier: Modifier = Modifier
 ) {
     val loc = LocalizationManager.shared
     val isVi = loc.isVietnamese()
+
+    val targetRotation = when (deviceOrientationDegrees) {
+        90 -> 90f
+        180 -> 180f
+        270 -> 270f
+        else -> 0f
+    }
+    val animatedRotation by animateFloatAsState(
+        targetValue = targetRotation,
+        animationSpec = tween(durationMillis = 250),
+        label = "iconRotation"
+    )
 
     var showingFilterSelector by remember { mutableStateOf(false) }
     var showingStickerSelector by remember { mutableStateOf(false) }
@@ -92,7 +108,8 @@ fun CameraControlsOverlay(
                     FlashMode.AUTO -> Icons.Filled.FlashAuto
                     FlashMode.TORCH -> Icons.Filled.Highlight
                 },
-                tint = if (flashMode == FlashMode.OFF) Color.White else SnapGold
+                tint = if (flashMode == FlashMode.OFF) Color.White else SnapGold,
+                rotation = animatedRotation
             )
 
             // Aspect ratio button
@@ -108,7 +125,8 @@ fun CameraControlsOverlay(
                     text = aspectRatio.title,
                     color = Color.White,
                     fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.rotate(animatedRotation)
                 )
             }
 
@@ -116,7 +134,8 @@ fun CameraControlsOverlay(
             TopBarIconButton(
                 onClick = onToggleGrid,
                 icon = Icons.Default.GridOn,
-                tint = if (showGrid) SnapGold else Color.White.copy(alpha = 0.5f)
+                tint = if (showGrid) SnapGold else Color.White.copy(alpha = 0.5f),
+                rotation = animatedRotation
             )
 
             // Filter button (Fleeting Years, Elegant, Cartoon, 3D...)
@@ -126,7 +145,8 @@ fun CameraControlsOverlay(
                     showingStickerSelector = false
                 },
                 icon = Icons.Default.AutoFixHigh,
-                tint = if (activeFilter != com.snaplab.cameraft.models.PhotoFilter.ORIGINAL) SnapSafetyOrange else Color.White
+                tint = if (activeFilter != com.snaplab.cameraft.models.PhotoFilter.ORIGINAL) SnapSafetyOrange else Color.White,
+                rotation = animatedRotation
             )
 
             // Sticker button (ĐÃ DUYỆT, NGHIỆM THU ĐẠT...)
@@ -136,7 +156,8 @@ fun CameraControlsOverlay(
                     showingFilterSelector = false
                 },
                 icon = Icons.Default.Stars,
-                tint = if (activeSticker != null) SnapNeonGreen else Color.White
+                tint = if (activeSticker != null) SnapNeonGreen else Color.White,
+                rotation = animatedRotation
             )
 
             // Language Switcher Button (1-Tap VI/EN)
@@ -152,7 +173,8 @@ fun CameraControlsOverlay(
                     text = if (isVi) "🇻🇳 VI" else "🇺🇸 EN",
                     color = Color.White,
                     fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.rotate(animatedRotation)
                 )
             }
 
@@ -160,7 +182,8 @@ fun CameraControlsOverlay(
             TopBarIconButton(
                 onClick = onOpenSettings,
                 icon = Icons.Default.Settings,
-                tint = Color.White
+                tint = Color.White,
+                rotation = animatedRotation
             )
         }
 
@@ -329,7 +352,7 @@ fun CameraControlsOverlay(
                             imageVector = Icons.Default.PhotoLibrary,
                             contentDescription = "Gallery",
                             tint = Color.White,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(24.dp).rotate(animatedRotation)
                         )
                     }
                     Spacer(modifier = Modifier.height(4.dp))
@@ -337,7 +360,8 @@ fun CameraControlsOverlay(
                         text = loc.t("gallery"),
                         color = Color.White.copy(alpha = 0.8f),
                         fontSize = 10.sp,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.rotate(animatedRotation)
                     )
                 }
 
@@ -358,7 +382,7 @@ fun CameraControlsOverlay(
                             imageVector = Icons.Default.Layers,
                             contentDescription = "Templates",
                             tint = SnapSafetyOrange,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(24.dp).rotate(animatedRotation)
                         )
                     }
                     Spacer(modifier = Modifier.height(4.dp))
@@ -366,7 +390,8 @@ fun CameraControlsOverlay(
                         text = loc.t("templates"),
                         color = Color.White.copy(alpha = 0.8f),
                         fontSize = 10.sp,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.rotate(animatedRotation)
                     )
                 }
 
@@ -426,7 +451,7 @@ fun CameraControlsOverlay(
                             imageVector = Icons.Default.VerifiedUser,
                             contentDescription = "Verify",
                             tint = SnapNeonGreen,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(24.dp).rotate(animatedRotation)
                         )
                     }
                     Spacer(modifier = Modifier.height(4.dp))
@@ -434,7 +459,8 @@ fun CameraControlsOverlay(
                         text = loc.t("verify"),
                         color = Color.White.copy(alpha = 0.8f),
                         fontSize = 10.sp,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.rotate(animatedRotation)
                     )
                 }
 
@@ -455,7 +481,7 @@ fun CameraControlsOverlay(
                             imageVector = Icons.Default.FlipCameraAndroid,
                             contentDescription = "Flip",
                             tint = Color.White,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(24.dp).rotate(animatedRotation)
                         )
                     }
                     Spacer(modifier = Modifier.height(4.dp))
@@ -463,7 +489,8 @@ fun CameraControlsOverlay(
                         text = "Lật",
                         color = Color.White.copy(alpha = 0.8f),
                         fontSize = 10.sp,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.rotate(animatedRotation)
                     )
                 }
             }
@@ -477,7 +504,8 @@ private val CapsuleShape = RoundedCornerShape(20.dp)
 private fun TopBarIconButton(
     onClick: () -> Unit,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
-    tint: Color
+    tint: Color,
+    rotation: Float = 0f
 ) {
     IconButton(
         onClick = onClick,
@@ -490,7 +518,7 @@ private fun TopBarIconButton(
             imageVector = icon,
             contentDescription = null,
             tint = tint,
-            modifier = Modifier.size(20.dp)
+            modifier = Modifier.size(20.dp).rotate(rotation)
         )
     }
 }

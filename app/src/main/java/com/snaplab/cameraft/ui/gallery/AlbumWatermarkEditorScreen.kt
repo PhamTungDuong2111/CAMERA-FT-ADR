@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import com.snaplab.cameraft.models.VerificationRecord
 import com.snaplab.cameraft.models.WatermarkTemplate
 import com.snaplab.cameraft.services.AntiCounterfeitingManager
+import com.snaplab.cameraft.services.ImageUtils
 import com.snaplab.cameraft.services.LocalizationManager
 import com.snaplab.cameraft.services.LocationWeatherManager
 import com.snaplab.cameraft.services.PhotoLibraryManager
@@ -66,8 +67,7 @@ fun AlbumWatermarkEditorScreen(
         if (uri != null) {
             scope.launch(Dispatchers.IO) {
                 try {
-                    val stream = context.contentResolver.openInputStream(uri)
-                    val bmp = BitmapFactory.decodeStream(stream)
+                    val bmp = ImageUtils.decodeAndRotateUri(context, uri)
                     withContext(Dispatchers.Main) {
                         selectedBitmap = bmp
                     }
@@ -102,8 +102,10 @@ fun AlbumWatermarkEditorScreen(
                                 isProcessing = true
                                 scope.launch(Dispatchers.IO) {
                                     val locState = LocationWeatherManager.shared.locationState.value
+                                    val verifiedTime = com.snaplab.cameraft.services.RealTimeManager.shared.getVerifiedTimestamp()
                                     val record = AntiCounterfeitingManager.shared.createAndRegisterRecord(
                                         bitmap = bmp,
+                                        timestamp = verifiedTime,
                                         latitude = locState.latitude,
                                         longitude = locState.longitude,
                                         altitude = locState.altitude,
@@ -115,6 +117,7 @@ fun AlbumWatermarkEditorScreen(
                                         originalBitmap = bmp,
                                         template = currentTemplate,
                                         verificationRecord = record,
+                                        timestamp = verifiedTime,
                                         locationState = locState
                                     )
                                     PhotoLibraryManager.shared.saveWatermarkedPhoto(

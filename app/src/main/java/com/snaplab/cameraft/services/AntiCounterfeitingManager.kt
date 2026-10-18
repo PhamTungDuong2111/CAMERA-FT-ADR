@@ -35,7 +35,7 @@ class AntiCounterfeitingManager private constructor() {
     // MARK: - Register a New Capture
     fun createAndRegisterRecord(
         bitmap: Bitmap,
-        timestamp: Long = System.currentTimeMillis(),
+        timestamp: Long = RealTimeManager.shared.getVerifiedTimestamp(),
         latitude: Double,
         longitude: Double,
         altitude: Double,
@@ -44,7 +44,7 @@ class AntiCounterfeitingManager private constructor() {
         inspectorName: String
     ): VerificationRecord {
         val checksum = computeSHA256(bitmap)
-        val deviceModel = "${Build.MANUFACTURER.replaceFirstChar { it.uppercase() }} ${Build.MODEL}"
+        val deviceModel = LocationWeatherManager.getDeviceModelName()
         val sysVersion = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
 
         val record = VerificationRecord(
@@ -67,6 +67,28 @@ class AntiCounterfeitingManager private constructor() {
         saveLedger()
 
         return record
+    }
+
+    /**
+     * Tự động giải mã đọc mã QR chống giả mạo trực tiếp từ ảnh (Bitmap QR Decoder) bằng ZXing.
+     */
+    fun decodeQRCodeFromBitmap(bitmap: Bitmap): String? {
+        return try {
+            val width = bitmap.width
+            val height = bitmap.height
+            val pixels = IntArray(width * height)
+            bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
+            val source = com.google.zxing.RGBLuminanceSource(width, height, pixels)
+            val binaryBitmap = com.google.zxing.BinaryBitmap(com.google.zxing.common.HybridBinarizer(source))
+            val hints = java.util.EnumMap<com.google.zxing.DecodeHintType, Any>(com.google.zxing.DecodeHintType::class.java).apply {
+                put(com.google.zxing.DecodeHintType.POSSIBLE_FORMATS, listOf(com.google.zxing.BarcodeFormat.QR_CODE))
+                put(com.google.zxing.DecodeHintType.TRY_HARDER, java.lang.Boolean.TRUE)
+            }
+            val result = com.google.zxing.MultiFormatReader().decode(binaryBitmap, hints)
+            result.text
+        } catch (_: Exception) {
+            null
+        }
     }
 
     // MARK: - Verify QR or ID Query

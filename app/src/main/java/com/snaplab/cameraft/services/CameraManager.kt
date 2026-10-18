@@ -1,7 +1,9 @@
 package com.snaplab.cameraft.services
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
@@ -16,6 +18,8 @@ import com.snaplab.cameraft.SnapLabApplication
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import android.view.OrientationEventListener
+import android.view.Surface
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -39,7 +43,9 @@ class CameraManager private constructor() {
 
     private val context = SnapLabApplication.instance
     private val cameraExecutor: ExecutorService = Executors.newSingleThreadExecutor()
-    private val sound = MediaActionSound().apply { load(MediaActionSound.SHUTTER_CLICK) }
+    private val sound = MediaActionSound().apply {
+        try { load(MediaActionSound.SHUTTER_CLICK) } catch (_: Exception) {}
+    }
 
     private var cameraProvider: ProcessCameraProvider? = null
     private var camera: Camera? = null
@@ -72,9 +78,57 @@ class CameraManager private constructor() {
     private val _showGrid = MutableStateFlow(true)
     val showGrid: StateFlow<Boolean> = _showGrid.asStateFlow()
 
+    private var orientationEventListener: OrientationEventListener? = null
+
+    private val _deviceRotation = MutableStateFlow(Surface.ROTATION_0)
+    val deviceRotation: StateFlow<Int> = _deviceRotation.asStateFlow()
+
+    private val _deviceOrientationDegrees = MutableStateFlow(0)
+    val deviceOrientationDegrees: StateFlow<Int> = _deviceOrientationDegrees.asStateFlow()
+
     // Callbacks
     var onPhotoCaptured: ((Bitmap) -> Unit)? = null
     var onVideoRecorded: ((File) -> Unit)? = null
+
+    fun startOrientationListener() {
+        if (orientationEventListener == null) {
+            orientationEventListener = object : OrientationEventListener(context) {
+                override fun onOrientationChanged(orientation: Int) {
+                    if (orientation == ORIENTATION_UNKNOWN) return
+
+                    val roundedAngle = when (orientation) {
+                        in 45 until 135 -> 270
+                        in 135 until 225 -> 180
+                        in 225 until 315 -> 90
+                        else -> 0
+                    }
+                    _deviceOrientationDegrees.value = roundedAngle
+
+                    val rotation = when (orientation) {
+                        in 45 until 135 -> Surface.ROTATION_270
+                        in 135 until 225 -> Surface.ROTATION_180
+                        in 225 until 315 -> Surface.ROTATION_90
+                        else -> Surface.ROTATION_0
+                    }
+
+                    if (_deviceRotation.value != rotation) {
+                        _deviceRotation.value = rotation
+                        imageCapture?.targetRotation = rotation
+                        try {
+                            videoCapture?.targetRotation = rotation
+                        } catch (_: Exception) {}
+                    }
+                }
+            }
+        }
+        if (orientationEventListener?.canDetectOrientation() == true) {
+            orientationEventListener?.enable()
+        }
+    }
+
+    fun stopOrientationListener() {
+        orientationEventListener?.disable()
+    }
 
     fun toggleGrid() {
         _showGrid.value = !_showGrid.value
@@ -110,12 +164,15 @@ class CameraManager private constructor() {
     }
 
     fun startCamera(lifecycleOwner: LifecycleOwner, previewView: PreviewView) {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            return
+        }
+
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
         cameraProviderFuture.addListener({
             try {
                 cameraProvider = cameraProviderFuture.get()
                 bindCameraUseCases(lifecycleOwner, previewView)
-                _isSyntheticMode.value = false
             } catch (e: Exception) {
                 e.printStackTrace()
                 // If on simulator with no camera hardware, fallback to synthetic camera
@@ -142,13 +199,20 @@ class CameraManager private constructor() {
                 it.setSurfaceProvider(previewView.surfaceProvider)
             }
 
+        val currentRot = _deviceRotation.value
+
         imageCapture = ImageCapture.Builder()
             .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
             .setTargetAspectRatio(targetRatio)
+            .setTargetRotation(currentRot)
             .build()
 
+        val qualitySelector = QualitySelector.fromOrderedList(
+            listOf(Quality.FHD, Quality.HD, Quality.SD),
+            FallbackStrategy.lowerQualityOrHigherThan(Quality.SD)
+        )
         val recorder = Recorder.Builder()
-            .setQualitySelector(QualitySelector.from(Quality.HIGHEST))
+            .setQualitySelector(qualitySelector)
             .build()
         videoCapture = VideoCapture.withOutput(recorder)
 
@@ -161,11 +225,28 @@ class CameraManager private constructor() {
                 imageCapture,
                 videoCapture
             )
+            _isSyntheticMode.value = false
             applyFlashSettings()
             camera?.cameraControl?.setZoomRatio(_zoomRatio.value)
         } catch (e: Exception) {
             e.printStackTrace()
-            _isSyntheticMode.value = true
+            // Fallback for budget/older devices that cannot bind 3 use cases concurrently
+            try {
+                videoCapture = null
+                provider.unbindAll()
+                camera = provider.bindToLifecycle(
+                    lifecycleOwner,
+                    cameraSelector,
+                    preview,
+                    imageCapture
+                )
+                _isSyntheticMode.value = false
+                applyFlashSettings()
+                camera?.cameraControl?.setZoomRatio(_zoomRatio.value)
+            } catch (e2: Exception) {
+                e2.printStackTrace()
+                _isSyntheticMode.value = true
+            }
         }
     }
 
@@ -193,11 +274,16 @@ class CameraManager private constructor() {
 
     // MARK: - Capture Photo
     fun capturePhoto() {
-        sound.play(MediaActionSound.SHUTTER_CLICK)
+        try {
+            sound.play(MediaActionSound.SHUTTER_CLICK)
+        } catch (_: Exception) {}
 
         if (_isSyntheticMode.value || imageCapture == null) {
             // Synthetic scene fallback
-            val dummyBitmap = ImageUtils.generateSyntheticScene()
+            val isPortrait = (_deviceRotation.value == Surface.ROTATION_0 || _deviceRotation.value == Surface.ROTATION_180)
+            val w = if (isPortrait) 1440 else 1920
+            val h = if (isPortrait) 1920 else 1440
+            val dummyBitmap = ImageUtils.generateSyntheticScene(width = w, height = h)
             onPhotoCaptured?.invoke(dummyBitmap)
             return
         }
@@ -212,25 +298,29 @@ class CameraManager private constructor() {
             object : ImageCapture.OnImageSavedCallback {
                 override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
                     try {
-                        val bitmap = BitmapFactory.decodeFile(tempFile.absolutePath)
-                        // If front camera, mirror horizontally
-                        val finalBitmap = if (_isFrontCamera.value) {
-                            val matrix = Matrix().apply { preScale(-1.0f, 1.0f) }
-                            Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
-                        } else {
-                            bitmap
+                        val finalBitmap = ImageUtils.decodeAndRotateBitmap(
+                            filePath = tempFile.absolutePath,
+                            isFrontCamera = _isFrontCamera.value,
+                            fallbackDeviceRotation = _deviceRotation.value
+                        )
+                        if (finalBitmap != null) {
+                            onPhotoCaptured?.invoke(finalBitmap)
                         }
-                        tempFile.delete()
-                        onPhotoCaptured?.invoke(finalBitmap)
                     } catch (e: Exception) {
                         e.printStackTrace()
+                    } finally {
+                        try { tempFile.delete() } catch (_: Exception) {}
                     }
                 }
 
                 override fun onError(exception: ImageCaptureException) {
                     exception.printStackTrace()
+                    try { tempFile.delete() } catch (_: Exception) {}
                     // Fallback to synthetic
-                    val dummy = ImageUtils.generateSyntheticScene()
+                    val isPortrait = (_deviceRotation.value == Surface.ROTATION_0 || _deviceRotation.value == Surface.ROTATION_180)
+                    val w = if (isPortrait) 1440 else 1920
+                    val h = if (isPortrait) 1920 else 1440
+                    val dummy = ImageUtils.generateSyntheticScene(width = w, height = h)
                     onPhotoCaptured?.invoke(dummy)
                 }
             }
@@ -255,25 +345,28 @@ class CameraManager private constructor() {
         )
         val outputOptions = FileOutputOptions.Builder(videoFile).build()
 
-        activeRecording = vid.output
-            .prepareRecording(context, outputOptions)
-            .start(ContextCompat.getMainExecutor(context)) { recordEvent ->
-                when (recordEvent) {
-                    is VideoRecordEvent.Start -> {
-                        _isRecordingVideo.value = true
-                        _recordingDurationSec.value = 0
-                    }
-                    is VideoRecordEvent.Status -> {
-                        _recordingDurationSec.value = recordEvent.recordingStats.recordedDurationNanos / 1_000_000_000L
-                    }
-                    is VideoRecordEvent.Finalize -> {
-                        _isRecordingVideo.value = false
-                        if (!recordEvent.hasError()) {
-                            onVideoRecorded?.invoke(videoFile)
-                        }
+        val pending = vid.output.prepareRecording(context, outputOptions)
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            pending.withAudioEnabled()
+        }
+
+        activeRecording = pending.start(ContextCompat.getMainExecutor(context)) { recordEvent ->
+            when (recordEvent) {
+                is VideoRecordEvent.Start -> {
+                    _isRecordingVideo.value = true
+                    _recordingDurationSec.value = 0
+                }
+                is VideoRecordEvent.Status -> {
+                    _recordingDurationSec.value = recordEvent.recordingStats.recordedDurationNanos / 1_000_000_000L
+                }
+                is VideoRecordEvent.Finalize -> {
+                    _isRecordingVideo.value = false
+                    if (!recordEvent.hasError()) {
+                        onVideoRecorded?.invoke(videoFile)
                     }
                 }
             }
+        }
     }
 
     companion object {

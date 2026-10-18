@@ -22,6 +22,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import org.json.JSONObject
+import java.io.BufferedReader
+import java.io.InputStreamReader
+import java.net.HttpURLConnection
+import java.net.URL
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -32,15 +37,26 @@ data class LocationState(
     val fullAddress: String = "Bến Nghé, Quận 1, TP. Hồ Chí Minh",
     val compassDegrees: Float = 45f,
     val compassDirection: String = "Đông Bắc (NE 45°)",
-    val temperatureCelsius: Int = 31,
-    val humidityPercent: Int = 68,
-    val weatherCondition: String = "Nắng nhẹ / Quang đãng ☀️"
+    val temperatureCelsius: Int = 30,
+    val humidityPercent: Int = 72,
+    val weatherCondition: String = "Nắng nhẹ / Quang đãng ☀️",
+    val deviceName: String = LocationWeatherManager.getDeviceModelName(),
+    val isRealTimeVerified: Boolean = true,
+    val timeSourceDescription: String = "GPS/NTP Chuẩn"
 )
 
+/**
+ * LocationWeatherManager: Tự động điền dữ liệu môi trường thông minh (Intelligent Auto-filling)
+ * 1. Tự lấy tọa độ GPS chính xác và chuyển đổi thành địa chỉ cụ thể qua Reverse Geocoding (+ Online Fallback).
+ * 2. Tự cập nhật thông tin thời tiết thực tế, nhiệt độ (°C), độ ẩm (%) qua Open-Meteo API miễn phí.
+ * 3. Tự đo độ cao (Altitude) bằng cảm biến áp suất khí quyển (Barometer) và dữ liệu vệ tinh GPS.
+ * 4. Tự nhận diện tên thiết bị chụp (Device Name).
+ */
 class LocationWeatherManager private constructor() : SensorEventListener {
 
     private val context = SnapLabApplication.instance
     private val fusedLocationClient: FusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(context)
+    private val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
     private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
 
     private val _locationState = MutableStateFlow(LocationState())
@@ -52,34 +68,66 @@ class LocationWeatherManager private constructor() : SensorEventListener {
     private val orientationAngles = FloatArray(3)
 
     private var isTracking = false
+    private var lastWeatherFetchTime = 0L
+    private var lastWeatherLat = 0.0
+    private var lastWeatherLon = 0.0
 
+    // Google Play Services Fused Location Callback
     private val locationCallback = object : LocationCallback() {
         override fun onLocationResult(result: LocationResult) {
-            result.lastLocation?.let { updateLocation(it) }
+            result.lastLocation?.let { handleNewLocation(it) }
         }
     }
 
+    // Android Standard LocationManager Fallback (for devices without Play Services or emulators)
+    private val legacyLocationListener = object : LocationListener {
+        override fun onLocationChanged(location: Location) {
+            handleNewLocation(location)
+        }
+        @Deprecated("Deprecated in Java")
+        override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+        override fun onProviderEnabled(provider: String) {}
+        override fun onProviderDisabled(provider: String) {}
+    }
+
+    @SuppressLint("MissingPermission")
     fun startTracking() {
         if (isTracking) return
         isTracking = true
 
-        // 1. Request GPS Location
+        // 1. Start Google Play Fused Location Provider
         try {
-            val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000)
-                .setMinUpdateIntervalMillis(2000)
+            val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 3000)
+                .setMinUpdateIntervalMillis(1500)
                 .build()
 
             fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper())
             fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
-                if (loc != null) updateLocation(loc)
+                if (loc != null) handleNewLocation(loc)
             }
-        } catch (e: SecurityException) {
-            // Permissions not granted yet - fallback gracefully
+        } catch (_: SecurityException) {
         } catch (e: Exception) {
             e.printStackTrace()
         }
 
-        // 2. Start Compass Sensor
+        // 2. Fallback to Android native LocationManager (GPS + Network)
+        try {
+            locationManager?.let { lm ->
+                if (lm.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                    lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 3000L, 2f, legacyLocationListener, Looper.getMainLooper())
+                    val lastGps = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+                    if (lastGps != null) handleNewLocation(lastGps)
+                }
+                if (lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+                    lm.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 4000L, 5f, legacyLocationListener, Looper.getMainLooper())
+                }
+            }
+        } catch (_: SecurityException) {
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        // 3. Register Compass Sensors (Accelerometer + Magnetometer)
         val accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
         val magneticField = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
         if (accelerometer != null) {
@@ -88,59 +136,248 @@ class LocationWeatherManager private constructor() : SensorEventListener {
         if (magneticField != null) {
             sensorManager.registerListener(this, magneticField, SensorManager.SENSOR_DELAY_UI)
         }
+
+        // 4. Register Barometer Sensor for Physical Altitude (if hardware exists)
+        val pressureSensor = sensorManager.getDefaultSensor(Sensor.TYPE_PRESSURE)
+        if (pressureSensor != null) {
+            sensorManager.registerListener(this, pressureSensor, SensorManager.SENSOR_DELAY_NORMAL)
+        }
+
+        // 5. Initial Weather Fetch for current default or last coordinates
+        fetchLiveWeather(_locationState.value.latitude, _locationState.value.longitude)
     }
 
     fun stopTracking() {
         if (!isTracking) return
         isTracking = false
-        fusedLocationClient.removeLocationUpdates(locationCallback)
+        try {
+            fusedLocationClient.removeLocationUpdates(locationCallback)
+        } catch (_: Exception) {}
+        try {
+            locationManager?.removeUpdates(legacyLocationListener)
+        } catch (_: Exception) {}
         sensorManager.unregisterListener(this)
     }
 
-    private fun updateLocation(loc: Location) {
+    /**
+     * Xử lý khi có tọa độ vị trí mới từ GPS vệ tinh / mạng.
+     */
+    private fun handleNewLocation(loc: Location) {
         val lat = loc.latitude
         val lon = loc.longitude
-        val alt = if (loc.hasAltitude()) loc.altitude else 16.5
+        val alt = if (loc.hasAltitude()) loc.altitude else _locationState.value.altitude
 
-        CoroutineScope(Dispatchers.IO).launch {
-            var addr = _locationState.value.fullAddress
-            try {
-                val geocoder = Geocoder(context, Locale.getDefault())
-                val addresses = geocoder.getFromLocation(lat, lon, 1)
-                if (!addresses.isNullOrEmpty()) {
-                    val a = addresses[0]
-                    val parts = listOfNotNull(
-                        a.thoroughfare ?: a.subLocality,
-                        a.locality ?: a.subAdminArea,
-                        a.adminArea,
-                        a.countryName
-                    ).filter { it.isNotBlank() }
-                    if (parts.isNotEmpty()) {
-                        addr = parts.joinToString(", ")
-                    }
-                }
-            } catch (e: Exception) {
-                // Keep existing or simulated address
-            }
+        // Synchronize real-time clock with GPS atomic satellite time
+        if (loc.time > 0L) {
+            RealTimeManager.shared.syncWithGpsTime(loc.time)
+        }
 
-            _locationState.value = _locationState.value.copy(
-                latitude = lat,
-                longitude = lon,
-                altitude = alt,
-                fullAddress = addr
-            )
+        _locationState.value = _locationState.value.copy(
+            latitude = lat,
+            longitude = lon,
+            altitude = alt,
+            deviceName = getDeviceModelName()
+        )
+
+        // Perform Reverse Geocoding to get full address
+        resolveReverseGeocode(lat, lon)
+
+        // Fetch Live Weather & Temperature
+        val now = System.currentTimeMillis()
+        val distChange = Math.abs(lat - lastWeatherLat) + Math.abs(lon - lastWeatherLon)
+        if (now - lastWeatherFetchTime > 600_000L || distChange > 0.02) {
+            fetchLiveWeather(lat, lon)
         }
     }
 
-    // SensorEventListener for Compass
+    /**
+     * Tự chuyển đổi tọa độ GPS thành địa chỉ cụ thể (Reverse Geocoding)
+     * Kết hợp cả bộ giải mã nội bộ Geocoder lẫn dự phòng OpenStreetMap Nominatim API khi cần thiết.
+     */
+    private fun resolveReverseGeocode(lat: Double, lon: Double) {
+        CoroutineScope(Dispatchers.IO).launch {
+            var resolvedAddress: String? = null
+
+            // Method 1: Android System Geocoder
+            try {
+                val geocoder = Geocoder(context, Locale.getDefault())
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    geocoder.getFromLocation(lat, lon, 1) { addresses ->
+                        if (!addresses.isNullOrEmpty()) {
+                            val addr = formatAddress(addresses[0])
+                            if (addr.isNotBlank()) {
+                                updateAddressState(addr)
+                            }
+                        }
+                    }
+                } else {
+                    @Suppress("DEPRECATION")
+                    val addresses = geocoder.getFromLocation(lat, lon, 1)
+                    if (!addresses.isNullOrEmpty()) {
+                        resolvedAddress = formatAddress(addresses[0])
+                    }
+                }
+            } catch (_: Exception) {
+                // System geocoder unavailable (common on some emulators and network errors)
+            }
+
+            if (!resolvedAddress.isNullOrBlank()) {
+                updateAddressState(resolvedAddress)
+                return@launch
+            }
+
+            // Method 2: Online OpenStreetMap Nominatim Fallback
+            try {
+                val url = URL("https://nominatim.openstreetmap.org/reverse?lat=$lat&lon=$lon&format=json&accept-language=vi,en")
+                val conn = (url.openConnection() as HttpURLConnection).apply {
+                    requestMethod = "GET"
+                    setRequestProperty("User-Agent", "SnapLabCamera/2.4 (Android)")
+                    connectTimeout = 4000
+                    readTimeout = 4000
+                }
+                if (conn.responseCode == 200) {
+                    val reader = BufferedReader(InputStreamReader(conn.inputStream))
+                    val response = reader.readText()
+                    reader.close()
+
+                    val json = JSONObject(response)
+                    val addrObj = json.optJSONObject("address")
+                    if (addrObj != null) {
+                        val road = addrObj.optString("road", "")
+                        val houseNumber = addrObj.optString("house_number", "")
+                        val suburb = addrObj.optString("suburb", addrObj.optString("neighbourhood", ""))
+                        val district = addrObj.optString("city_district", addrObj.optString("county", ""))
+                        val city = addrObj.optString("city", addrObj.optString("state", ""))
+                        val country = addrObj.optString("country", "Việt Nam")
+
+                        val parts = mutableListOf<String>()
+                        if (road.isNotBlank()) {
+                            if (houseNumber.isNotBlank()) parts.add("$houseNumber $road") else parts.add(road)
+                        }
+                        if (suburb.isNotBlank()) parts.add(suburb)
+                        if (district.isNotBlank()) parts.add(district)
+                        if (city.isNotBlank()) parts.add(city)
+                        if (country.isNotBlank()) parts.add(country)
+
+                        if (parts.isNotEmpty()) {
+                            resolvedAddress = parts.joinToString(", ")
+                        }
+                    }
+                    if (resolvedAddress.isNullOrBlank()) {
+                        resolvedAddress = json.optString("display_name", "")
+                    }
+                }
+                conn.disconnect()
+            } catch (_: Exception) {}
+
+            if (!resolvedAddress.isNullOrBlank()) {
+                updateAddressState(resolvedAddress)
+            }
+        }
+    }
+
+    private fun formatAddress(a: Address): String {
+        val parts = listOfNotNull(
+            a.subThoroughfare?.let { num -> a.thoroughfare?.let { street -> "$num $street" } } ?: a.thoroughfare ?: a.subLocality,
+            a.subAdminArea ?: a.locality,
+            a.adminArea,
+            a.countryName
+        ).filter { it.isNotBlank() }
+        return parts.joinToString(", ")
+    }
+
+    private fun updateAddressState(addr: String) {
+        _locationState.value = _locationState.value.copy(fullAddress = addr)
+    }
+
+    /**
+     * Tự cập nhật thông tin thời tiết, nhiệt độ (°C) và độ cao (Elevation) qua Open-Meteo
+     */
+    private fun fetchLiveWeather(lat: Double, lon: Double) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                lastWeatherFetchTime = System.currentTimeMillis()
+                lastWeatherLat = lat
+                lastWeatherLon = lon
+
+                val urlStr = "https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current=temperature_2m,relative_humidity_2m,weather_code"
+                val url = URL(urlStr)
+                val conn = (url.openConnection() as HttpURLConnection).apply {
+                    requestMethod = "GET"
+                    connectTimeout = 4000
+                    readTimeout = 4000
+                }
+
+                if (conn.responseCode == 200) {
+                    val reader = BufferedReader(InputStreamReader(conn.inputStream))
+                    val response = reader.readText()
+                    reader.close()
+
+                    val json = JSONObject(response)
+                    val elevation = json.optDouble("elevation", _locationState.value.altitude)
+                    val current = json.getJSONObject("current")
+                    val temp = current.getDouble("temperature_2m").roundToInt()
+                    val humidity = current.getInt("relative_humidity_2m")
+                    val code = current.getInt("weather_code")
+
+                    val condition = weatherCodeToDescription(code, LocalizationManager.shared.isVietnamese())
+
+                    _locationState.value = _locationState.value.copy(
+                        temperatureCelsius = temp,
+                        humidityPercent = humidity,
+                        weatherCondition = condition,
+                        altitude = if (_locationState.value.altitude <= 0.1) elevation else _locationState.value.altitude
+                    )
+                }
+                conn.disconnect()
+            } catch (e: Exception) {
+                // If offline, keep reasonable live weather estimation
+            }
+        }
+    }
+
+    private fun weatherCodeToDescription(code: Int, isVi: Boolean): String {
+        return when (code) {
+            0 -> if (isVi) "Quang đãng ☀️" else "Clear Sky ☀️"
+            1 -> if (isVi) "Ít mây 🌤️" else "Mainly Clear 🌤️"
+            2 -> if (isVi) "Mây rải rác ⛅" else "Partly Cloudy ⛅"
+            3 -> if (isVi) "Nhiều mây ☁️" else "Overcast ☁️"
+            45, 48 -> if (isVi) "Sương mù 🌫️" else "Foggy 🌫️"
+            51, 53, 55 -> if (isVi) "Mưa phùn nhẹ 🌦️" else "Drizzle 🌦️"
+            61, 63 -> if (isVi) "Mưa rào vừa 🌧️" else "Moderate Rain 🌧️"
+            65 -> if (isVi) "Mưa to 🌧️" else "Heavy Rain 🌧️"
+            80, 81, 82 -> if (isVi) "Mưa dông hiện trường ⛈️" else "Rain Showers ⛈️"
+            95, 96, 99 -> if (isVi) "Dông lốc sấm sét ⚡" else "Thunderstorm ⚡"
+            else -> if (isVi) "Nắng nhẹ 🌤️" else "Partly Sunny 🌤️"
+        }
+    }
+
+    // SensorEventListener for Compass & Barometer
     override fun onSensorChanged(event: SensorEvent?) {
         if (event == null) return
-        if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
-            System.arraycopy(event.values, 0, accelerometerReading, 0, accelerometerReading.size)
-        } else if (event.sensor.type == Sensor.TYPE_MAGNETIC_FIELD) {
-            System.arraycopy(event.values, 0, magnetometerReading, 0, magnetometerReading.size)
+        when (event.sensor.type) {
+            Sensor.TYPE_ACCELEROMETER -> {
+                System.arraycopy(event.values, 0, accelerometerReading, 0, accelerometerReading.size)
+                updateCompass()
+            }
+            Sensor.TYPE_MAGNETIC_FIELD -> {
+                System.arraycopy(event.values, 0, magnetometerReading, 0, magnetometerReading.size)
+                updateCompass()
+            }
+            Sensor.TYPE_PRESSURE -> {
+                // Physical barometer pressure in hPa
+                val pressure = event.values[0]
+                val baroAltitude = SensorManager.getAltitude(SensorManager.PRESSURE_STANDARD_ATMOSPHERE, pressure).toDouble()
+                if (baroAltitude > -500.0 && baroAltitude < 9000.0) {
+                    _locationState.value = _locationState.value.copy(
+                        altitude = (baroAltitude * 10).roundToInt() / 10.0
+                    )
+                }
+            }
         }
+    }
 
+    private fun updateCompass() {
         SensorManager.getRotationMatrix(rotationMatrix, null, accelerometerReading, magnetometerReading)
         SensorManager.getOrientation(rotationMatrix, orientationAngles)
 
@@ -191,6 +428,18 @@ class LocationWeatherManager private constructor() : SensorEventListener {
     }
 
     companion object {
+        fun getDeviceModelName(): String {
+            val manufacturer = Build.MANUFACTURER.replaceFirstChar {
+                if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()
+            }
+            val model = Build.MODEL
+            return if (model.startsWith(manufacturer, ignoreCase = true)) {
+                model
+            } else {
+                "$manufacturer $model"
+            }
+        }
+
         val shared by lazy { LocationWeatherManager() }
     }
 }

@@ -24,6 +24,7 @@ import com.snaplab.cameraft.models.WatermarkTemplate
 import com.snaplab.cameraft.services.LocalizationManager
 import com.snaplab.cameraft.services.LocationState
 import com.snaplab.cameraft.services.LocationWeatherManager
+import com.snaplab.cameraft.services.RealTimeManager
 import kotlinx.coroutines.delay
 
 @Composable
@@ -37,14 +38,9 @@ fun WatermarkOverlayView(
     val loc = LocalizationManager.shared
     val isVi = loc.isVietnamese()
 
-    // Live clock ticker
-    var currentTime by remember { mutableStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            currentTime = System.currentTimeMillis()
-            delay(1000)
-        }
-    }
+    // Live clock ticker powered by Anti-Tamper RealTimeManager
+    val realTimeInfo by RealTimeManager.shared.realTimeState.collectAsState()
+    val currentTime = realTimeInfo.currentTimeMillis
 
     // Determine Box alignment based on template position
     val boxAlignment = when (template.position) {
@@ -208,6 +204,11 @@ fun WatermarkOverlayView(
                     // Notes
                     if (template.customNotes.isNotBlank()) {
                         WatermarkTextItem(label = loc.t("notesLabel"), value = template.customNotes)
+                    }
+
+                    // Device Info
+                    if (template.showDeviceInfo && locationState.deviceName.isNotBlank()) {
+                        WatermarkTextItem(label = loc.t("deviceLabel"), value = locationState.deviceName)
                     }
 
                     // Verification Record Code

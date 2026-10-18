@@ -108,14 +108,16 @@ fun MediaDetailScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(380.dp)
+                    .heightIn(min = 280.dp, max = 520.dp)
                     .background(Color.Black),
                 contentAlignment = Alignment.Center
             ) {
                 AsyncImage(
                     model = File(media.filePath),
                     contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .wrapContentHeight(),
                     contentScale = ContentScale.Fit
                 )
 

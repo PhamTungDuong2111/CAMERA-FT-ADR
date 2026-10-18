@@ -11,6 +11,11 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
+import android.content.Context
+import android.graphics.BitmapFactory
+import android.net.Uri
+import android.view.Surface
+import androidx.exifinterface.media.ExifInterface
 import java.util.EnumMap
 
 object ImageUtils {
@@ -47,6 +52,89 @@ object ImageUtils {
         val matrix = Matrix()
         matrix.postRotate(angle)
         return Bitmap.createBitmap(source, 0, 0, source.width, source.height, matrix, true)
+    }
+
+    // Decode and rotate file according to EXIF and physical device rotation
+    fun decodeAndRotateBitmap(
+        filePath: String,
+        isFrontCamera: Boolean = false,
+        fallbackDeviceRotation: Int = Surface.ROTATION_0
+    ): Bitmap? {
+        return try {
+            val exif = ExifInterface(filePath)
+            val orientation = exif.getAttributeInt(
+                ExifInterface.TAG_ORIENTATION,
+                ExifInterface.ORIENTATION_UNDEFINED
+            )
+            var rotationDegrees = when (orientation) {
+                ExifInterface.ORIENTATION_ROTATE_90 -> 90f
+                ExifInterface.ORIENTATION_ROTATE_180 -> 180f
+                ExifInterface.ORIENTATION_ROTATE_270 -> 270f
+                else -> 0f
+            }
+
+            val rawBitmap = BitmapFactory.decodeFile(filePath) ?: return null
+
+            // If EXIF orientation is not present or normal (0), check whether the raw bitmap matches the physical orientation
+            if (rotationDegrees == 0f) {
+                val isPortrait = (fallbackDeviceRotation == Surface.ROTATION_0 || fallbackDeviceRotation == Surface.ROTATION_180)
+                if (isPortrait && rawBitmap.width > rawBitmap.height) {
+                    // Device was in Portrait, but raw bitmap is horizontal: rotate to portrait
+                    rotationDegrees = if (fallbackDeviceRotation == Surface.ROTATION_180) 270f else 90f
+                } else if (!isPortrait && rawBitmap.width < rawBitmap.height) {
+                    // Device was in Landscape, but raw bitmap is vertical: rotate to landscape
+                    rotationDegrees = if (fallbackDeviceRotation == Surface.ROTATION_270) 270f else 90f
+                }
+            }
+
+            val matrix = Matrix()
+            if (rotationDegrees != 0f) {
+                matrix.postRotate(rotationDegrees)
+            }
+            if (isFrontCamera) {
+                matrix.postScale(-1f, 1f)
+            }
+
+            if (rotationDegrees != 0f || isFrontCamera) {
+                Bitmap.createBitmap(rawBitmap, 0, 0, rawBitmap.width, rawBitmap.height, matrix, true)
+            } else {
+                rawBitmap
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    // Decode and rotate URI from Photo Picker
+    fun decodeAndRotateUri(context: Context, uri: Uri): Bitmap? {
+        return try {
+            val inputStream = context.contentResolver.openInputStream(uri) ?: return null
+            val exif = ExifInterface(inputStream)
+            val orientation = exif.getAttributeInt(
+                ExifInterface.TAG_ORIENTATION,
+                ExifInterface.ORIENTATION_NORMAL
+            )
+            val rotationDegrees = when (orientation) {
+                ExifInterface.ORIENTATION_ROTATE_90 -> 90f
+                ExifInterface.ORIENTATION_ROTATE_180 -> 180f
+                ExifInterface.ORIENTATION_ROTATE_270 -> 270f
+                else -> 0f
+            }
+
+            val streamForBitmap = context.contentResolver.openInputStream(uri) ?: return null
+            val rawBitmap = BitmapFactory.decodeStream(streamForBitmap) ?: return null
+
+            if (rotationDegrees != 0f) {
+                val matrix = Matrix().apply { postRotate(rotationDegrees) }
+                Bitmap.createBitmap(rawBitmap, 0, 0, rawBitmap.width, rawBitmap.height, matrix, true)
+            } else {
+                rawBitmap
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
     }
 
     // MARK: - Generate Synthetic Scene for Simulator / Emulator without Webcam

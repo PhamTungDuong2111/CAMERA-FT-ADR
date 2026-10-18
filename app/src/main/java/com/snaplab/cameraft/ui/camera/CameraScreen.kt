@@ -12,6 +12,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,6 +28,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -35,12 +41,16 @@ import com.snaplab.cameraft.ui.settings.SettingsScreen
 import com.snaplab.cameraft.ui.templates.TemplateEditorDialog
 import com.snaplab.cameraft.ui.templates.TemplateSelectorDrawer
 import com.snaplab.cameraft.ui.theme.SnapDangerRed
+import com.snaplab.cameraft.ui.theme.SnapSafetyOrange
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
-fun CameraScreen() {
+fun CameraScreen(
+    hasCameraPermission: Boolean = true,
+    onRequestPermission: () -> Unit = {}
+) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
 
@@ -56,6 +66,7 @@ fun CameraScreen() {
     val recordingDurationSec by cameraManager.recordingDurationSec.collectAsState()
     val showGrid by cameraManager.showGrid.collectAsState()
     val isSyntheticMode by cameraManager.isSyntheticMode.collectAsState()
+    val deviceOrientationDegrees by cameraManager.deviceOrientationDegrees.collectAsState()
 
     val locationState by locationWeatherManager.locationState.collectAsState()
 
@@ -83,12 +94,15 @@ fun CameraScreen() {
 
     // Live preview verification record (for QR rendering)
     val liveRecord = remember(selectedTemplate, locationState) {
+        val verifiedTime = com.snaplab.cameraft.services.RealTimeManager.shared.getVerifiedTimestamp()
         VerificationRecord(
             id = "SL-LIVE-" + (1000..9999).random(),
+            timestamp = verifiedTime,
             latitude = locationState.latitude,
             longitude = locationState.longitude,
             altitude = locationState.altitude,
             addressString = locationState.fullAddress,
+            deviceModel = locationState.deviceName,
             projectName = selectedTemplate.projectName,
             inspectorName = selectedTemplate.inspectorName
         )
@@ -97,9 +111,12 @@ fun CameraScreen() {
     // Process captured photo
     val processCapturedPhoto: (Bitmap) -> Unit = { rawBitmap ->
         scope.launch(Dispatchers.IO) {
+            val verifiedTimestamp = com.snaplab.cameraft.services.RealTimeManager.shared.getVerifiedTimestamp()
+
             // 1. Register authoritative record with SHA-256
             val record = antiManager.createAndRegisterRecord(
                 bitmap = rawBitmap,
+                timestamp = verifiedTimestamp,
                 latitude = locationState.latitude,
                 longitude = locationState.longitude,
                 altitude = locationState.altitude,
@@ -108,7 +125,7 @@ fun CameraScreen() {
                 inspectorName = selectedTemplate.inspectorName
             )
 
-            // 2. Render watermark card onto bitmap
+            // 2. Render watermark card onto bitmap at full original resolution
             val watermarked = WatermarkRenderer.shared.renderWatermark(
                 originalBitmap = rawBitmap,
                 template = selectedTemplate,
@@ -126,14 +143,33 @@ fun CameraScreen() {
         }
     }
 
-    // Set callbacks
-    DisposableEffect(lifecycleOwner) {
+    // Set callbacks & lifecycle hooks
+    DisposableEffect(lifecycleOwner, hasCameraPermission) {
+        cameraManager.startOrientationListener()
         cameraManager.onPhotoCaptured = { bmp ->
             processCapturedPhoto(bmp)
         }
-        locationWeatherManager.startTracking()
+        cameraManager.onVideoRecorded = { vidFile ->
+            scope.launch(Dispatchers.IO) {
+                photoLibraryManager.saveRecordedVideo(
+                    videoFile = vidFile,
+                    projectName = selectedTemplate.projectName
+                )
+            }
+        }
+        if (hasCameraPermission) {
+            locationWeatherManager.startTracking()
+        }
         onDispose {
+            cameraManager.stopOrientationListener()
             locationWeatherManager.stopTracking()
+        }
+    }
+
+    LaunchedEffect(hasCameraPermission, previewViewInstance) {
+        if (hasCameraPermission && previewViewInstance != null) {
+            cameraManager.startCamera(lifecycleOwner, previewViewInstance!!)
+            locationWeatherManager.startTracking()
         }
     }
 
@@ -157,7 +193,9 @@ fun CameraScreen() {
                 factory = { ctx ->
                     PreviewView(ctx).apply {
                         previewViewInstance = this
-                        cameraManager.startCamera(lifecycleOwner, this)
+                        if (hasCameraPermission) {
+                            cameraManager.startCamera(lifecycleOwner, this)
+                        }
                     }
                 },
                 modifier = Modifier.fillMaxSize()
@@ -251,10 +289,55 @@ fun CameraScreen() {
             onOpenGallery = { showingGallery = true },
             onOpenTemplates = { showingTemplateDrawer = true },
             onOpenVerification = { showingVerificationView = true },
-            onOpenSettings = { showingSettings = true }
+            onOpenSettings = { showingSettings = true },
+            deviceOrientationDegrees = deviceOrientationDegrees
         )
 
-        // 7. SLIDING TEMPLATE DRAWER
+        // 7. PERMISSION REQUEST OVERLAY (when permission is missing)
+        if (!hasCameraPermission) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.88f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CameraAlt,
+                        contentDescription = null,
+                        tint = SnapSafetyOrange,
+                        modifier = Modifier.size(64.dp)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "Cần quyền truy cập Camera",
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Vui lòng cấp quyền Máy ảnh và Vị trí để chụp ảnh thực địa và gắn nhãn xác thực.",
+                        color = Color.White.copy(alpha = 0.75f),
+                        fontSize = 14.sp,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Button(
+                        onClick = onRequestPermission,
+                        colors = ButtonDefaults.buttonColors(containerColor = SnapSafetyOrange),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Cấp quyền truy cập", fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+                }
+            }
+        }
+
+        // 8. SLIDING TEMPLATE DRAWER
         AnimatedVisibility(
             visible = showingTemplateDrawer,
             enter = slideInVertically(initialOffsetY = { it }),

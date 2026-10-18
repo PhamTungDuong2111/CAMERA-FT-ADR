@@ -15,7 +15,7 @@ class WatermarkRenderer private constructor() {
         originalBitmap: Bitmap,
         template: WatermarkTemplate,
         verificationRecord: VerificationRecord?,
-        timestamp: Long = System.currentTimeMillis(),
+        timestamp: Long = RealTimeManager.shared.getVerifiedTimestamp(),
         locationState: LocationState = LocationWeatherManager.shared.locationState.value
     ): Bitmap {
         // Apply aesthetic / creative photo filter first (Fleeting Years, Elegant, Cartoon, 3D, etc.)
@@ -91,6 +91,11 @@ class WatermarkRenderer private constructor() {
         }
         if (envParts.isNotEmpty()) {
             lines.add(LineItem(envParts.joinToString(" • "), false))
+        }
+
+        // Device Info (Tên thiết bị chụp)
+        if (template.showDeviceInfo && locationState.deviceName.isNotBlank()) {
+            lines.add(LineItem(loc.t("deviceLabel") + locationState.deviceName, false))
         }
 
         // Notes

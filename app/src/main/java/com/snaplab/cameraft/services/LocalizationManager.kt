@@ -78,10 +78,15 @@ class LocalizationManager private constructor() {
         "altitudeLabel" to Pair("Cao độ: ", "Altitude: "),
         "compassLabel" to Pair("Hướng: ", "Heading: "),
         "notesLabel" to Pair("Ghi chú: ", "Notes: "),
+        "deviceLabel" to Pair("Thiết bị: ", "Device: "),
+        "antiTamperVerified" to Pair("Thời gian thực (Chống tua giờ)", "Real-time Anti-tamper Verified"),
         "verifyCodeLabel" to Pair("Mã xác thực: ", "Verify Code: "),
         "scanToVerify" to Pair("QUÉT ĐỂ XÁC THỰC", "SCAN TO VERIFY"),
         "scanQuery" to Pair("QUÉT ĐỐI SOÁT", "SCAN QUERY"),
         "snaplabVerified" to Pair("Xác thực SnapLab: ", "SnapLab Verified: "),
+        "qrDecodedSuccess" to Pair("Đã đọc mã QR thành công!", "QR Code Decoded Successfully!"),
+        "noQrFound" to Pair("Không tìm thấy mã QR trong ảnh", "No QR Code found in image"),
+        "scanLiveCamera" to Pair("Quét mã qua Camera", "Scan QR with Camera"),
 
         // Categories
         "all" to Pair("Tất cả", "All"),

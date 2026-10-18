@@ -318,6 +318,7 @@ fun TemplateEditorDialog(
                 ToggleItem(loc.t("showAltitudeToggle"), showAltitude) { showAltitude = it }
                 ToggleItem(loc.t("showWeatherToggle"), showWeather) { showWeather = it }
                 ToggleItem(loc.t("showCompassToggle"), showCompass) { showCompass = it }
+                ToggleItem(loc.t("showDeviceInfoToggle"), showDeviceInfo) { showDeviceInfo = it }
                 ToggleItem(loc.t("showAntiCounterfeitQRToggle"), showAntiCounterfeitQR) { showAntiCounterfeitQR = it }
 
                 // Section: Sliders

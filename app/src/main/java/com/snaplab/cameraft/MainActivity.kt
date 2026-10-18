@@ -17,18 +17,26 @@ import com.snaplab.cameraft.ui.camera.CameraScreen
 import com.snaplab.cameraft.ui.theme.SnapBackgroundDark
 import com.snaplab.cameraft.ui.theme.SnapLabTheme
 
+import android.view.WindowManager
+
 class MainActivity : ComponentActivity() {
 
     private var deepLinkQuery: String? = null
+    private var hasCameraPermission by mutableStateOf(false)
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        // Permissions handled
+        val cameraGranted = permissions[Manifest.permission.CAMERA] == true ||
+                ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        hasCameraPermission = cameraGranted
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Keep screen on while user is in camera mode
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         // Check if opened via deep link snaplab://verify?...
         intent?.data?.let { uri ->
@@ -47,7 +55,10 @@ class MainActivity : ComponentActivity() {
                 ) {
                     var showDeepLinkVerify by remember { mutableStateOf(deepLinkQuery != null) }
 
-                    CameraScreen()
+                    CameraScreen(
+                        hasCameraPermission = hasCameraPermission,
+                        onRequestPermission = { checkAndRequestPermissions() }
+                    )
 
                     if (showDeepLinkVerify) {
                         AntiCounterfeitQueryScreen(
@@ -59,6 +70,14 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        val cameraGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        if (cameraGranted != hasCameraPermission) {
+            hasCameraPermission = cameraGranted
         }
     }
 
@@ -75,6 +94,9 @@ class MainActivity : ComponentActivity() {
             permissions.add(Manifest.permission.READ_MEDIA_VIDEO)
         } else {
             permissions.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+            if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
+                permissions.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            }
         }
 
         val ungranted = permissions.filter {
@@ -83,6 +105,8 @@ class MainActivity : ComponentActivity() {
 
         if (ungranted.isNotEmpty()) {
             permissionLauncher.launch(ungranted.toTypedArray())
+        } else {
+            hasCameraPermission = true
         }
     }
 }

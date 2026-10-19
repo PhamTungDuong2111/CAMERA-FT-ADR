@@ -50,6 +50,8 @@ fun AlbumWatermarkEditorScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val loc = LocalizationManager.shared
+    val currentLang by loc.currentLanguage.collectAsState()
+    val isVi = currentLang == com.snaplab.cameraft.services.AppLanguage.VIETNAMESE
 
     var selectedBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var currentTemplate by remember { mutableStateOf(WatermarkTemplate.presets[0]) }
@@ -109,9 +111,9 @@ fun AlbumWatermarkEditorScreen(
                                         latitude = locState.latitude,
                                         longitude = locState.longitude,
                                         altitude = locState.altitude,
-                                        address = locState.fullAddress,
-                                        projectName = currentTemplate.projectName,
-                                        inspectorName = currentTemplate.inspectorName
+                                        address = locState.getFullAddress(isVi),
+                                        projectName = currentTemplate.getProjectName(isVi),
+                                        inspectorName = currentTemplate.getInspectorName(isVi)
                                     )
                                     val watermarked = WatermarkRenderer.shared.renderWatermark(
                                         originalBitmap = bmp,
@@ -216,7 +218,7 @@ fun AlbumWatermarkEditorScreen(
                             ) {
                                 Icon(imageVector = Icons.Default.SwapHoriz, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Đổi ảnh", color = Color.White, fontSize = 12.sp)
+                                Text(if (isVi) "Đổi ảnh" else "Change Photo", color = Color.White, fontSize = 12.sp)
                             }
                         }
 
@@ -432,7 +434,7 @@ fun AlbumWatermarkEditorScreen(
                                         .padding(horizontal = 14.dp, vertical = 10.dp)
                                 ) {
                                     Text(
-                                        text = if (loc.isVietnamese()) "Không nhãn" else "No Sticker",
+                                        text = loc.t("noSticker"),
                                         color = Color.White,
                                         fontSize = 12.5.sp
                                     )
@@ -453,7 +455,7 @@ fun AlbumWatermarkEditorScreen(
                                         .padding(horizontal = 14.dp, vertical = 10.dp)
                                 ) {
                                     Text(
-                                        text = "★ ${st.title}",
+                                        text = "★ ${st.getTitle(isVi)}",
                                         color = if (isSelected) st.composeColor else Color.White,
                                         fontSize = 12.5.sp,
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal

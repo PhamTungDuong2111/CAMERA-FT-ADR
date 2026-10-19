@@ -37,7 +37,8 @@ fun TemplateSelectorDrawer(
     modifier: Modifier = Modifier
 ) {
     val loc = LocalizationManager.shared
-    val isVi = loc.isVietnamese()
+    val currentLang by loc.currentLanguage.collectAsState()
+    val isVi = currentLang == com.snaplab.cameraft.services.AppLanguage.VIETNAMESE
 
     var selectedCategory by remember { mutableStateOf<WatermarkCategory?>(null) }
 
@@ -113,6 +114,7 @@ fun TemplateSelectorDrawer(
                 TemplateCard(
                     template = tmpl,
                     isSelected = isSelected,
+                    isVi = isVi,
                     onSelect = { onSelectTemplate(tmpl) },
                     onCustomize = { onCustomizeTemplate(tmpl) }
                 )
@@ -148,6 +150,7 @@ private fun CategoryPill(
 private fun TemplateCard(
     template: WatermarkTemplate,
     isSelected: Boolean,
+    isVi: Boolean,
     onSelect: () -> Unit,
     onCustomize: () -> Unit
 ) {
@@ -173,7 +176,7 @@ private fun TemplateCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = template.name,
+                text = template.getName(isVi),
                 color = Color.White,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
@@ -204,15 +207,16 @@ private fun TemplateCard(
                 .padding(6.dp)
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                val previewTitle = template.getTitleText(isVi).ifBlank { template.getName(isVi) }
                 Text(
-                    text = if (template.titleText.isNotBlank()) template.titleText else template.name,
+                    text = previewTitle,
                     color = accentColor,
                     fontSize = 9.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1
                 )
                 Text(
-                    text = "📍 " + (template.projectName.ifBlank { "GPS Coordinates" }),
+                    text = "📍 " + (template.getProjectName(isVi).ifBlank { "GPS Coordinates" }),
                     color = Color.White.copy(alpha = 0.7f),
                     fontSize = 8.sp,
                     maxLines = 1

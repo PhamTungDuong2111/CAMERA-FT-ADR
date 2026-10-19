@@ -40,10 +40,15 @@ data class LocationState(
     val temperatureCelsius: Int = 30,
     val humidityPercent: Int = 72,
     val weatherCondition: String = "Nắng nhẹ / Quang đãng ☀️",
+    val weatherCode: Int = 1,
     val deviceName: String = LocationWeatherManager.getDeviceModelName(),
     val isRealTimeVerified: Boolean = true,
     val timeSourceDescription: String = "GPS/NTP Chuẩn"
-)
+) {
+    fun getWeatherCondition(isVi: Boolean): String = LocationWeatherManager.weatherCodeToDescription(weatherCode, isVi)
+    fun getCompassDirection(isVi: Boolean): String = LocationWeatherManager.degreesToCompassDirection(compassDegrees, isVi)
+    fun getFullAddress(isVi: Boolean): String = if (isVi) fullAddress else LocationWeatherManager.translateAddressToEn(fullAddress)
+}
 
 /**
  * LocationWeatherManager: Tự động điền dữ liệu môi trường thông minh (Intelligent Auto-filling)
@@ -61,6 +66,19 @@ class LocationWeatherManager private constructor() : SensorEventListener {
 
     private val _locationState = MutableStateFlow(LocationState())
     val locationState: StateFlow<LocationState> = _locationState.asStateFlow()
+
+    init {
+        CoroutineScope(Dispatchers.Main).launch {
+            LocalizationManager.shared.currentLanguage.collect { lang ->
+                val isVi = lang == AppLanguage.VIETNAMESE
+                val cur = _locationState.value
+                _locationState.value = cur.copy(
+                    weatherCondition = weatherCodeToDescription(cur.weatherCode, isVi),
+                    compassDirection = degreesToCompassDirection(cur.compassDegrees, isVi)
+                )
+            }
+        }
+    }
 
     private var accelerometerReading = FloatArray(3)
     private var magnetometerReading = FloatArray(3)
@@ -326,6 +344,7 @@ class LocationWeatherManager private constructor() : SensorEventListener {
                         temperatureCelsius = temp,
                         humidityPercent = humidity,
                         weatherCondition = condition,
+                        weatherCode = code,
                         altitude = if (_locationState.value.altitude <= 0.1) elevation else _locationState.value.altitude
                     )
                 }
@@ -333,22 +352,6 @@ class LocationWeatherManager private constructor() : SensorEventListener {
             } catch (e: Exception) {
                 // If offline, keep reasonable live weather estimation
             }
-        }
-    }
-
-    private fun weatherCodeToDescription(code: Int, isVi: Boolean): String {
-        return when (code) {
-            0 -> if (isVi) "Quang đãng ☀️" else "Clear Sky ☀️"
-            1 -> if (isVi) "Ít mây 🌤️" else "Mainly Clear 🌤️"
-            2 -> if (isVi) "Mây rải rác ⛅" else "Partly Cloudy ⛅"
-            3 -> if (isVi) "Nhiều mây ☁️" else "Overcast ☁️"
-            45, 48 -> if (isVi) "Sương mù 🌫️" else "Foggy 🌫️"
-            51, 53, 55 -> if (isVi) "Mưa phùn nhẹ 🌦️" else "Drizzle 🌦️"
-            61, 63 -> if (isVi) "Mưa rào vừa 🌧️" else "Moderate Rain 🌧️"
-            65 -> if (isVi) "Mưa to 🌧️" else "Heavy Rain 🌧️"
-            80, 81, 82 -> if (isVi) "Mưa dông hiện trường ⛈️" else "Rain Showers ⛈️"
-            95, 96, 99 -> if (isVi) "Dông lốc sấm sét ⚡" else "Thunderstorm ⚡"
-            else -> if (isVi) "Nắng nhẹ 🌤️" else "Partly Sunny 🌤️"
         }
     }
 
@@ -396,22 +399,6 @@ class LocationWeatherManager private constructor() : SensorEventListener {
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
-    private fun degreesToCompassDirection(degrees: Float, isVi: Boolean): String {
-        val deg = degrees.roundToInt()
-        val sector = ((degrees + 22.5f) / 45).toInt() % 8
-        return when (sector) {
-            0 -> if (isVi) "Bắc (N $deg°)" else "North (N $deg°)"
-            1 -> if (isVi) "Đông Bắc (NE $deg°)" else "North-East (NE $deg°)"
-            2 -> if (isVi) "Đông (E $deg°)" else "East (E $deg°)"
-            3 -> if (isVi) "Đông Nam (SE $deg°)" else "South-East (SE $deg°)"
-            4 -> if (isVi) "Nam (S $deg°)" else "South (S $deg°)"
-            5 -> if (isVi) "Tây Nam (SW $deg°)" else "South-West (SW $deg°)"
-            6 -> if (isVi) "Tây (W $deg°)" else "West (W $deg°)"
-            7 -> if (isVi) "Tây Bắc (NW $deg°)" else "North-West (NW $deg°)"
-            else -> "$deg°"
-        }
-    }
-
     fun formattedCoordinates(lat: Double, lon: Double): String {
         val latDir = if (lat >= 0) "N" else "S"
         val lonDir = if (lon >= 0) "E" else "W"
@@ -428,6 +415,60 @@ class LocationWeatherManager private constructor() : SensorEventListener {
     }
 
     companion object {
+        fun weatherCodeToDescription(code: Int, isVi: Boolean): String {
+            return when (code) {
+                0 -> if (isVi) "Quang đãng ☀️" else "Clear Sky ☀️"
+                1 -> if (isVi) "Ít mây 🌤️" else "Mainly Clear 🌤️"
+                2 -> if (isVi) "Mây rải rác ⛅" else "Partly Cloudy ⛅"
+                3 -> if (isVi) "Nhiều mây ☁️" else "Overcast ☁️"
+                45, 48 -> if (isVi) "Sương mù 🌫️" else "Foggy 🌫️"
+                51, 53, 55 -> if (isVi) "Mưa phùn nhẹ 🌦️" else "Light Drizzle 🌦️"
+                61, 63 -> if (isVi) "Mưa rào vừa 🌧️" else "Moderate Rain 🌧️"
+                65 -> if (isVi) "Mưa to 🌧️" else "Heavy Rain 🌧️"
+                80, 81, 82 -> if (isVi) "Mưa dông hiện trường ⛈️" else "Rain Showers ⛈️"
+                95, 96, 99 -> if (isVi) "Dông lốc sấm sét ⚡" else "Thunderstorm ⚡"
+                else -> if (isVi) "Nắng nhẹ 🌤️" else "Partly Sunny 🌤️"
+            }
+        }
+
+        fun degreesToCompassDirection(degrees: Float, isVi: Boolean): String {
+            val deg = degrees.roundToInt()
+            val sector = ((degrees + 22.5f) / 45).toInt() % 8
+            return when (sector) {
+                0 -> if (isVi) "Bắc (N $deg°)" else "North (N $deg°)"
+                1 -> if (isVi) "Đông Bắc (NE $deg°)" else "North-East (NE $deg°)"
+                2 -> if (isVi) "Đông (E $deg°)" else "East (E $deg°)"
+                3 -> if (isVi) "Đông Nam (SE $deg°)" else "South-East (SE $deg°)"
+                4 -> if (isVi) "Nam (S $deg°)" else "South (S $deg°)"
+                5 -> if (isVi) "Tây Nam (SW $deg°)" else "South-West (SW $deg°)"
+                6 -> if (isVi) "Tây (W $deg°)" else "West (W $deg°)"
+                7 -> if (isVi) "Tây Bắc (NW $deg°)" else "North-West (NW $deg°)"
+                else -> "$deg°"
+            }
+        }
+
+        fun translateAddressToEn(addr: String): String {
+            if (addr.isBlank()) return addr
+            var res = addr
+            res = res.replace("Việt Nam", "Vietnam")
+            res = res.replace("Hà Nội", "Hanoi")
+            res = res.replace("TP. Hồ Chí Minh", "Ho Chi Minh City")
+            res = res.replace("Hồ Chí Minh", "Ho Chi Minh City")
+            res = res.replace("Đà Nẵng", "Da Nang")
+            res = res.replace("Hải Phòng", "Hai Phong")
+            res = res.replace("Cần Thơ", "Can Tho")
+            res = res.replace("Thành phố ", "City of ")
+            res = res.replace("TP. ", "City ")
+            res = res.replace("Quận ", "District ")
+            res = res.replace("Huyện ", "District ")
+            res = res.replace("Thị xã ", "Town of ")
+            res = res.replace("Phường ", "Ward ")
+            res = res.replace("Xã ", "Commune ")
+            res = res.replace(Regex("(\\d+)\\s+Đường\\s+([^,]+)"), "$1 $2 St.")
+            res = res.replace(Regex("Đường\\s+([^,]+)"), "$1 St.")
+            res = res.replace(Regex("Phố\\s+([^,]+)"), "$1 St.")
+            return res
+        }
         fun getDeviceModelName(): String {
             val manufacturer = Build.MANUFACTURER.replaceFirstChar {
                 if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()

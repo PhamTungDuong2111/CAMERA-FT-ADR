@@ -173,7 +173,7 @@ class PhotoLibraryManager private constructor() {
             isVideo = false,
             createdAt = timestamp,
             recordId = record?.id ?: "",
-            projectName = template.projectName,
+            projectName = record?.projectName ?: template.getProjectName(LocalizationManager.shared.isVietnamese()),
             location = record?.addressString ?: ""
         )
 

@@ -38,8 +38,9 @@ class WatermarkRenderer private constructor() {
         val lines = mutableListOf<LineItem>()
 
         // Title
-        val title = if (template.titleText.isNotBlank()) {
-            template.titleText.uppercase()
+        val titleText = template.getTitleText(isVi)
+        val title = if (titleText.isNotBlank()) {
+            titleText.uppercase()
         } else {
             template.category.getDisplayName(isVi).uppercase()
         }
@@ -55,22 +56,27 @@ class WatermarkRenderer private constructor() {
         }
 
         // Project & Personnel
-        if (template.projectName.isNotBlank()) {
-            lines.add(LineItem(loc.t("projectLabel") + template.projectName, false))
+        val projectName = template.getProjectName(isVi)
+        if (projectName.isNotBlank()) {
+            lines.add(LineItem(loc.t("projectLabel") + projectName, false))
         }
-        if (template.workItem.isNotBlank()) {
-            lines.add(LineItem(loc.t("workItemLabel") + template.workItem, false))
+        val workItem = template.getWorkItem(isVi)
+        if (workItem.isNotBlank()) {
+            lines.add(LineItem(loc.t("workItemLabel") + workItem, false))
         }
-        if (template.contractorName.isNotBlank()) {
-            lines.add(LineItem(loc.t("contractorLabel") + template.contractorName, false))
+        val contractorName = template.getContractorName(isVi)
+        if (contractorName.isNotBlank()) {
+            lines.add(LineItem(loc.t("contractorLabel") + contractorName, false))
         }
-        if (template.inspectorName.isNotBlank()) {
-            lines.add(LineItem(loc.t("inspectorLabel") + template.inspectorName, false))
+        val inspectorName = template.getInspectorName(isVi)
+        if (inspectorName.isNotBlank()) {
+            lines.add(LineItem(loc.t("inspectorLabel") + inspectorName, false))
         }
 
         // Location & GPS
-        if (template.showLocation && locationState.fullAddress.isNotBlank()) {
-            lines.add(LineItem(loc.t("locationLabel") + locationState.fullAddress, false))
+        val fullAddress = locationState.getFullAddress(isVi)
+        if (template.showLocation && fullAddress.isNotBlank()) {
+            lines.add(LineItem(loc.t("locationLabel") + fullAddress, false))
         }
         if (template.showCoordinates) {
             val coordStr = LocationWeatherManager.shared.formattedCoordinates(locationState.latitude, locationState.longitude)
@@ -84,10 +90,13 @@ class WatermarkRenderer private constructor() {
         // Weather & Compass
         val envParts = mutableListOf<String>()
         if (template.showWeather) {
-            envParts.add("${locationState.weatherCondition} ${locationState.temperatureCelsius}°C (Độ ẩm ${locationState.humidityPercent}%)")
+            val weatherCond = locationState.getWeatherCondition(isVi)
+            val humLabel = loc.t("humidity")
+            val humStr = if (locationState.humidityPercent > 0) " ($humLabel ${locationState.humidityPercent}%)" else ""
+            envParts.add("$weatherCond ${locationState.temperatureCelsius}°C$humStr")
         }
         if (template.showCompass) {
-            envParts.add(loc.t("compassLabel") + locationState.compassDirection)
+            envParts.add(loc.t("compassLabel") + locationState.getCompassDirection(isVi))
         }
         if (envParts.isNotEmpty()) {
             lines.add(LineItem(envParts.joinToString(" • "), false))
@@ -99,8 +108,9 @@ class WatermarkRenderer private constructor() {
         }
 
         // Notes
-        if (template.customNotes.isNotBlank()) {
-            lines.add(LineItem(loc.t("notesLabel") + template.customNotes, false))
+        val customNotes = template.getCustomNotes(isVi)
+        if (customNotes.isNotBlank()) {
+            lines.add(LineItem(loc.t("notesLabel") + customNotes, false))
         }
 
         // Verification Code
@@ -319,7 +329,7 @@ class WatermarkRenderer private constructor() {
             } else {
                 stickerMargin + 20f * scaleFactor
             }
-            sticker.draw(canvas, stickerX, stickerY, stickerSize)
+            sticker.draw(canvas, stickerX, stickerY, stickerSize, isVi)
         }
 
         return outputBitmap

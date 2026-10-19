@@ -92,8 +92,12 @@ fun CameraScreen(
     // PreviewView holder
     var previewViewInstance by remember { mutableStateOf<PreviewView?>(null) }
 
+    val loc = LocalizationManager.shared
+    val currentLang by loc.currentLanguage.collectAsState()
+    val isVi = currentLang == AppLanguage.VIETNAMESE
+
     // Live preview verification record (for QR rendering)
-    val liveRecord = remember(selectedTemplate, locationState) {
+    val liveRecord = remember(selectedTemplate, locationState, isVi) {
         val verifiedTime = com.snaplab.cameraft.services.RealTimeManager.shared.getVerifiedTimestamp()
         VerificationRecord(
             id = "SL-LIVE-" + (1000..9999).random(),
@@ -101,10 +105,10 @@ fun CameraScreen(
             latitude = locationState.latitude,
             longitude = locationState.longitude,
             altitude = locationState.altitude,
-            addressString = locationState.fullAddress,
+            addressString = locationState.getFullAddress(isVi),
             deviceModel = locationState.deviceName,
-            projectName = selectedTemplate.projectName,
-            inspectorName = selectedTemplate.inspectorName
+            projectName = selectedTemplate.getProjectName(isVi),
+            inspectorName = selectedTemplate.getInspectorName(isVi)
         )
     }
 
@@ -120,9 +124,9 @@ fun CameraScreen(
                 latitude = locationState.latitude,
                 longitude = locationState.longitude,
                 altitude = locationState.altitude,
-                address = locationState.fullAddress,
-                projectName = selectedTemplate.projectName,
-                inspectorName = selectedTemplate.inspectorName
+                address = locationState.getFullAddress(isVi),
+                projectName = selectedTemplate.getProjectName(isVi),
+                inspectorName = selectedTemplate.getInspectorName(isVi)
             )
 
             // 2. Render watermark card onto bitmap at full original resolution
@@ -153,7 +157,7 @@ fun CameraScreen(
             scope.launch(Dispatchers.IO) {
                 photoLibraryManager.saveRecordedVideo(
                     videoFile = vidFile,
-                    projectName = selectedTemplate.projectName
+                    projectName = selectedTemplate.getProjectName(isVi)
                 )
             }
         }

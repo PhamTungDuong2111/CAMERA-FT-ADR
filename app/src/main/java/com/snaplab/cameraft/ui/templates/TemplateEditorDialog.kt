@@ -39,15 +39,16 @@ fun TemplateEditorDialog(
     onDismiss: () -> Unit
 ) {
     val loc = LocalizationManager.shared
-    val isVi = loc.isVietnamese()
+    val currentLang by loc.currentLanguage.collectAsState()
+    val isVi = currentLang == com.snaplab.cameraft.services.AppLanguage.VIETNAMESE
 
-    var name by remember { mutableStateOf(initialTemplate.name) }
-    var titleText by remember { mutableStateOf(initialTemplate.titleText) }
-    var projectName by remember { mutableStateOf(initialTemplate.projectName) }
-    var workItem by remember { mutableStateOf(initialTemplate.workItem) }
-    var contractorName by remember { mutableStateOf(initialTemplate.contractorName) }
-    var inspectorName by remember { mutableStateOf(initialTemplate.inspectorName) }
-    var customNotes by remember { mutableStateOf(initialTemplate.customNotes) }
+    var name by remember { mutableStateOf(initialTemplate.getName(isVi)) }
+    var titleText by remember { mutableStateOf(initialTemplate.getTitleText(isVi)) }
+    var projectName by remember { mutableStateOf(initialTemplate.getProjectName(isVi)) }
+    var workItem by remember { mutableStateOf(initialTemplate.getWorkItem(isVi)) }
+    var contractorName by remember { mutableStateOf(initialTemplate.getContractorName(isVi)) }
+    var inspectorName by remember { mutableStateOf(initialTemplate.getInspectorName(isVi)) }
+    var customNotes by remember { mutableStateOf(initialTemplate.getCustomNotes(isVi)) }
 
     var badgeStyle by remember { mutableStateOf(initialTemplate.badgeStyle) }
     var colorTheme by remember { mutableStateOf(initialTemplate.colorTheme) }
@@ -91,31 +92,66 @@ fun TemplateEditorDialog(
                     actions = {
                         Button(
                             onClick = {
-                                val updated = initialTemplate.copy(
-                                    name = name,
-                                    titleText = titleText,
-                                    projectName = projectName,
-                                    workItem = workItem,
-                                    contractorName = contractorName,
-                                    inspectorName = inspectorName,
-                                    customNotes = customNotes,
-                                    badgeStyle = badgeStyle,
-                                    colorTheme = colorTheme,
-                                    position = position,
-                                    showTime = showTime,
-                                    showSeconds = showSeconds,
-                                    showLocation = showLocation,
-                                    showCoordinates = showCoordinates,
-                                    showAltitude = showAltitude,
-                                    showWeather = showWeather,
-                                    showCompass = showCompass,
-                                    showDeviceInfo = showDeviceInfo,
-                                    showAntiCounterfeitQR = showAntiCounterfeitQR,
-                                    activeFilter = activeFilter,
-                                    activeSticker = activeSticker,
-                                    opacity = opacity,
-                                    scale = scale
-                                )
+                                val updated = if (isVi) {
+                                    initialTemplate.copy(
+                                        name = name,
+                                        nameVi = name,
+                                        titleText = titleText,
+                                        titleTextVi = titleText,
+                                        projectName = projectName,
+                                        projectNameVi = projectName,
+                                        workItem = workItem,
+                                        workItemVi = workItem,
+                                        contractorName = contractorName,
+                                        contractorNameVi = contractorName,
+                                        inspectorName = inspectorName,
+                                        inspectorNameVi = inspectorName,
+                                        customNotes = customNotes,
+                                        customNotesVi = customNotes,
+                                        badgeStyle = badgeStyle,
+                                        colorTheme = colorTheme,
+                                        position = position,
+                                        showTime = showTime,
+                                        showSeconds = showSeconds,
+                                        showLocation = showLocation,
+                                        showCoordinates = showCoordinates,
+                                        showAltitude = showAltitude,
+                                        showWeather = showWeather,
+                                        showCompass = showCompass,
+                                        showDeviceInfo = showDeviceInfo,
+                                        showAntiCounterfeitQR = showAntiCounterfeitQR,
+                                        activeFilter = activeFilter,
+                                        activeSticker = activeSticker,
+                                        opacity = opacity,
+                                        scale = scale
+                                    )
+                                } else {
+                                    initialTemplate.copy(
+                                        nameEn = name,
+                                        titleTextEn = titleText,
+                                        projectNameEn = projectName,
+                                        workItemEn = workItem,
+                                        contractorNameEn = contractorName,
+                                        inspectorNameEn = inspectorName,
+                                        customNotesEn = customNotes,
+                                        badgeStyle = badgeStyle,
+                                        colorTheme = colorTheme,
+                                        position = position,
+                                        showTime = showTime,
+                                        showSeconds = showSeconds,
+                                        showLocation = showLocation,
+                                        showCoordinates = showCoordinates,
+                                        showAltitude = showAltitude,
+                                        showWeather = showWeather,
+                                        showCompass = showCompass,
+                                        showDeviceInfo = showDeviceInfo,
+                                        showAntiCounterfeitQR = showAntiCounterfeitQR,
+                                        activeFilter = activeFilter,
+                                        activeSticker = activeSticker,
+                                        opacity = opacity,
+                                        scale = scale
+                                    )
+                                }
                                 onSave(updated)
                                 onDismiss()
                             },
@@ -291,7 +327,7 @@ fun TemplateEditorDialog(
                                 .padding(horizontal = 12.dp, vertical = 8.dp)
                         ) {
                             Text(
-                                text = "★ ${st.title}",
+                                text = "★ ${st.getTitle(isVi)}",
                                 color = if (isSelected) st.composeColor else Color.White,
                                 fontSize = 12.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal

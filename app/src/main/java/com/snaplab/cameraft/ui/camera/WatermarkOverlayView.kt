@@ -36,7 +36,8 @@ fun WatermarkOverlayView(
     modifier: Modifier = Modifier
 ) {
     val loc = LocalizationManager.shared
-    val isVi = loc.isVietnamese()
+    val currentLang by loc.currentLanguage.collectAsState()
+    val isVi = currentLang == com.snaplab.cameraft.services.AppLanguage.VIETNAMESE
 
     // Live clock ticker powered by Anti-Tamper RealTimeManager
     val realTimeInfo by RealTimeManager.shared.realTimeState.collectAsState()
@@ -108,8 +109,9 @@ fun WatermarkOverlayView(
                 )
                 Spacer(modifier = Modifier.width(6.dp))
 
-                val title = if (template.titleText.isNotBlank()) {
-                    template.titleText.uppercase()
+                val titleText = template.getTitleText(isVi)
+                val title = if (titleText.isNotBlank()) {
+                    titleText.uppercase()
                 } else {
                     template.category.getDisplayName(isVi).uppercase()
                 }
@@ -164,22 +166,27 @@ fun WatermarkOverlayView(
                     }
 
                     // Project & Tasks
-                    if (template.projectName.isNotBlank()) {
-                        WatermarkTextItem(label = loc.t("projectLabel"), value = template.projectName)
+                    val projName = template.getProjectName(isVi)
+                    if (projName.isNotBlank()) {
+                        WatermarkTextItem(label = loc.t("projectLabel"), value = projName)
                     }
-                    if (template.workItem.isNotBlank()) {
-                        WatermarkTextItem(label = loc.t("workItemLabel"), value = template.workItem)
+                    val workItem = template.getWorkItem(isVi)
+                    if (workItem.isNotBlank()) {
+                        WatermarkTextItem(label = loc.t("workItemLabel"), value = workItem)
                     }
-                    if (template.contractorName.isNotBlank()) {
-                        WatermarkTextItem(label = loc.t("contractorLabel"), value = template.contractorName)
+                    val contractor = template.getContractorName(isVi)
+                    if (contractor.isNotBlank()) {
+                        WatermarkTextItem(label = loc.t("contractorLabel"), value = contractor)
                     }
-                    if (template.inspectorName.isNotBlank()) {
-                        WatermarkTextItem(label = loc.t("inspectorLabel"), value = template.inspectorName)
+                    val inspector = template.getInspectorName(isVi)
+                    if (inspector.isNotBlank()) {
+                        WatermarkTextItem(label = loc.t("inspectorLabel"), value = inspector)
                     }
 
                     // Location & GPS
-                    if (template.showLocation && locationState.fullAddress.isNotBlank()) {
-                        WatermarkTextItem(label = loc.t("locationLabel"), value = locationState.fullAddress)
+                    val address = locationState.getFullAddress(isVi)
+                    if (template.showLocation && address.isNotBlank()) {
+                        WatermarkTextItem(label = loc.t("locationLabel"), value = address)
                     }
                     if (template.showCoordinates) {
                         val coords = LocationWeatherManager.shared.formattedCoordinates(locationState.latitude, locationState.longitude)
@@ -192,18 +199,19 @@ fun WatermarkOverlayView(
                     // Weather & Compass
                     val envParts = mutableListOf<String>()
                     if (template.showWeather) {
-                        envParts.add("${locationState.weatherCondition} ${locationState.temperatureCelsius}°C")
+                        envParts.add("${locationState.getWeatherCondition(isVi)} ${locationState.temperatureCelsius}°C")
                     }
                     if (template.showCompass) {
-                        envParts.add(locationState.compassDirection)
+                        envParts.add(locationState.getCompassDirection(isVi))
                     }
                     if (envParts.isNotEmpty()) {
                         WatermarkTextItem(label = "", value = envParts.joinToString(" • "))
                     }
 
                     // Notes
-                    if (template.customNotes.isNotBlank()) {
-                        WatermarkTextItem(label = loc.t("notesLabel"), value = template.customNotes)
+                    val notes = template.getCustomNotes(isVi)
+                    if (notes.isNotBlank()) {
+                        WatermarkTextItem(label = loc.t("notesLabel"), value = notes)
                     }
 
                     // Device Info
@@ -274,7 +282,7 @@ fun WatermarkOverlayView(
                     ),
                 contentAlignment = stickerAlignment
             ) {
-                StickerBadgeView(sticker = sticker)
+                StickerBadgeView(sticker = sticker, isVi = isVi)
             }
         }
     }
@@ -283,6 +291,7 @@ fun WatermarkOverlayView(
 @Composable
 fun StickerBadgeView(
     sticker: com.snaplab.cameraft.models.PhotoSticker,
+    isVi: Boolean = LocalizationManager.shared.isVietnamese(),
     modifier: Modifier = Modifier
 ) {
     val color = sticker.composeColor
@@ -313,7 +322,7 @@ fun StickerBadgeView(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = sticker.title,
+                    text = sticker.getTitle(isVi),
                     color = Color.White,
                     fontSize = 9.5.sp,
                     fontWeight = FontWeight.Black,
@@ -321,7 +330,7 @@ fun StickerBadgeView(
                     lineHeight = 11.sp
                 )
                 Text(
-                    text = sticker.subtitle,
+                    text = sticker.getSubtitle(isVi),
                     color = color,
                     fontSize = 6.sp,
                     fontWeight = FontWeight.Bold,

@@ -10,53 +10,76 @@ import com.snaplab.cameraft.ui.theme.*
 
 enum class PhotoSticker(
     val id: String,
-    val title: String,
-    val subtitle: String,
+    val titleVi: String,
+    val titleEn: String,
+    val subtitleVi: String,
+    val subtitleEn: String,
     val primaryColorHex: Long,
     val secondaryColorHex: Long
 ) {
     APPROVED(
         id = "approved",
-        title = "ĐÃ DUYỆT",
-        subtitle = "OFFICIALLY APPROVED",
+        titleVi = "ĐÃ DUYỆT",
+        titleEn = "APPROVED",
+        subtitleVi = "CHÍNH THỨC PHÊ DUYỆT",
+        subtitleEn = "OFFICIALLY APPROVED",
         primaryColorHex = 0xFF00E676,
         secondaryColorHex = 0xFF00B0FF
     ),
     PASSED(
         id = "passed",
-        title = "NGHIỆM THU ĐẠT",
-        subtitle = "QUALITY CONTROL PASSED",
+        titleVi = "NGHIỆM THU ĐẠT",
+        titleEn = "QC PASSED",
+        subtitleVi = "ĐẠT TIÊU CHUẨN",
+        subtitleEn = "QUALITY CONTROL PASSED",
         primaryColorHex = 0xFF0066FF,
         secondaryColorHex = 0xFF00E5FF
     ),
     SAFETY_FIRST(
         id = "safety_first",
-        title = "SAFETY FIRST",
-        subtitle = "AN TOÀN LÀ TRÊN HẾT",
+        titleVi = "AN TOÀN",
+        titleEn = "SAFETY FIRST",
+        subtitleVi = "AN TOÀN LÀ TRÊN HẾT",
+        subtitleEn = "ZERO ACCIDENTS",
         primaryColorHex = 0xFFFF6B00,
         secondaryColorHex = 0xFFFFD600
     ),
     URGENT(
         id = "urgent",
-        title = "KHẨN CẤP",
-        subtitle = "PRIORITY DISPATCH",
+        titleVi = "KHẨN CẤP",
+        titleEn = "URGENT",
+        subtitleVi = "ƯU TIÊN XỬ LÝ",
+        subtitleEn = "PRIORITY DISPATCH",
         primaryColorHex = 0xFFFF1744,
         secondaryColorHex = 0xFFFF9100
     ),
     HANDOVER(
         id = "handover",
-        title = "BÀN GIAO HỒ SƠ",
-        subtitle = "OFFICIAL HANDOVER",
+        titleVi = "BÀN GIAO",
+        titleEn = "HANDOVER",
+        subtitleVi = "XÁC NHẬN BÀN GIAO",
+        subtitleEn = "OFFICIAL HANDOVER",
         primaryColorHex = 0xFF7C4DFF,
         secondaryColorHex = 0xFFE040FB
     ),
     VIP_SEAL(
         id = "vip_seal",
-        title = "VIP SEAL",
-        subtitle = "VERIFIED EXCELLENCE",
+        titleVi = "DẤU VIP",
+        titleEn = "VIP SEAL",
+        subtitleVi = "TIÊU CHUẨN XUẤT SẮC",
+        subtitleEn = "VERIFIED EXCELLENCE",
         primaryColorHex = 0xFFFFD700,
         secondaryColorHex = 0xFFFFAB00
     );
+
+    fun getTitle(isVi: Boolean): String = if (isVi) titleVi else titleEn
+    fun getSubtitle(isVi: Boolean): String = if (isVi) subtitleVi else subtitleEn
+
+    val title: String
+        get() = getTitle(com.snaplab.cameraft.services.LocalizationManager.shared.isVietnamese())
+
+    val subtitle: String
+        get() = getSubtitle(com.snaplab.cameraft.services.LocalizationManager.shared.isVietnamese())
 
     val composeColor: ComposeColor
         get() = ComposeColor(primaryColorHex)
@@ -65,10 +88,19 @@ enum class PhotoSticker(
         get() = primaryColorHex.toInt()
 
     // MARK: - Draw Sticker onto Bitmap Canvas
-    fun draw(canvas: Canvas, x: Float, y: Float, size: Float) {
+    fun draw(
+        canvas: Canvas,
+        x: Float,
+        y: Float,
+        size: Float,
+        isVi: Boolean = com.snaplab.cameraft.services.LocalizationManager.shared.isVietnamese()
+    ) {
         val radius = size / 2f
         val cx = x + radius
         val cy = y + radius
+
+        val displayTitle = getTitle(isVi)
+        val displaySubtitle = getSubtitle(isVi)
 
         // Outer Ring Stamp
         val ringPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -102,7 +134,7 @@ enum class PhotoSticker(
             textAlign = Paint.Align.CENTER
             setShadowLayer(size * 0.02f, 0f, 0f, AndroidColor.BLACK)
         }
-        canvas.drawText(title, cx, cy - size * 0.03f, titlePaint)
+        canvas.drawText(displayTitle, cx, cy - size * 0.03f, titlePaint)
 
         // Subtitle text
         val subPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -111,7 +143,7 @@ enum class PhotoSticker(
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             textAlign = Paint.Align.CENTER
         }
-        canvas.drawText(subtitle, cx, cy + size * 0.16f, subPaint)
+        canvas.drawText(displaySubtitle, cx, cy + size * 0.16f, subPaint)
 
         // Little stars decoration
         val starPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {

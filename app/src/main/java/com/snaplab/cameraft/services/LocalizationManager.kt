@@ -66,6 +66,11 @@ class LocalizationManager private constructor() {
         "flashOn" to Pair("Bật", "On"),
         "flashAuto" to Pair("Tự động", "Auto"),
         "flashTorch" to Pair("Đèn pin", "Torch"),
+        "flip" to Pair("Lật", "Flip"),
+        "noSticker" to Pair("Không nhãn", "No Sticker"),
+        "none" to Pair("Không dùng", "None"),
+        "stickers" to Pair("Nhãn dán", "Stickers"),
+        "humidity" to Pair("Độ ẩm", "Humidity"),
 
         // Watermark Live Labels
         "timeLabel" to Pair("Thời gian: ", "Time: "),

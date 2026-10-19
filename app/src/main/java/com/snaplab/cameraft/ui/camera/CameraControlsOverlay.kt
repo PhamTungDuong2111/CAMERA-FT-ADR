@@ -68,7 +68,8 @@ fun CameraControlsOverlay(
     modifier: Modifier = Modifier
 ) {
     val loc = LocalizationManager.shared
-    val isVi = loc.isVietnamese()
+    val currentLang by loc.currentLanguage.collectAsState()
+    val isVi = currentLang == com.snaplab.cameraft.services.AppLanguage.VIETNAMESE
 
     val targetRotation = when (deviceOrientationDegrees) {
         90 -> 90f
@@ -244,7 +245,7 @@ fun CameraControlsOverlay(
                                 .padding(horizontal = 12.dp, vertical = 6.dp)
                         ) {
                             Text(
-                                text = if (isVi) "Không nhãn" else "No Sticker",
+                                text = loc.t("noSticker"),
                                 color = Color.White,
                                 fontSize = 11.5.sp,
                                 fontWeight = if (isNone) FontWeight.Bold else FontWeight.Normal
@@ -259,11 +260,11 @@ fun CameraControlsOverlay(
                                 .clip(RoundedCornerShape(14.dp))
                                 .background(if (isSelected) st.composeColor.copy(alpha = 0.35f) else Color.Black.copy(alpha = 0.65f))
                                 .border(1.5.dp, if (isSelected) st.composeColor else Color.White.copy(alpha = 0.2f), RoundedCornerShape(14.dp))
-                                .clickable { onSelectSticker(st) }
-                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                            .clickable { onSelectSticker(st) }
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
                         ) {
                             Text(
-                                text = "★ ${st.title}",
+                                text = "★ ${st.getTitle(isVi)}",
                                 color = if (isSelected) st.composeColor else Color.White,
                                 fontSize = 11.5.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
@@ -486,7 +487,7 @@ fun CameraControlsOverlay(
                     }
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Lật",
+                        text = loc.t("flip"),
                         color = Color.White.copy(alpha = 0.8f),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Medium,
